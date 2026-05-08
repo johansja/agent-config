@@ -13,7 +13,7 @@ This repository contains custom extensions for the pi coding agent. Extensions a
 ## Development Guidelines
 
 - **Language:** TypeScript, targeting Node.js (pi uses tsx for runtime compilation).
-- **Imports:** Use `@mariozechner/pi-coding-agent` for the ExtensionAPI type and helpers. Use `@mariozechner/pi-ai` and `@sinclair/typebox` where needed (as the team extension does).
+- **Imports:** Use `@earendil-works/pi-coding-agent` for the ExtensionAPI type and helpers. Use `@earendil-works/pi-ai` and `@sinclair/typebox` where needed (as the team extension does).
 - **No build step:** pi loads `.ts` files directly via tsx. Do not add a build/compile step.
 - **No npm/pnpm:** This is not a Node.js package. Dependencies are pi's own dependencies (available at runtime).
 - **Symlink deployment:** Extensions are deployed by symlinking into `~/.pi/agent/extensions/`. Always use `ln -sf` to update symlinks.

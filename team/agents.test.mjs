@@ -10,7 +10,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 
-// ─── Mock parseFrontmatter (mimics @mariozechner/pi-coding-agent behavior) ─
+// ─── Mock parseFrontmatter (mimics @earendil-works/pi-coding-agent behavior) ─
 
 function parseFrontmatter(content) {
 	const match = content.match(/^---\r?\n(.*?)\r?\n---\r?\n(.*)$/s);

@@ -45,8 +45,8 @@ import {
 	ModelRegistry,
 	SettingsManager,
 	type ExtensionAPI,
-} from "@mariozechner/pi-coding-agent";
-import { completeSimple, type Model, type Api, type Context } from "@mariozechner/pi-ai";
+} from "@earendil-works/pi-coding-agent";
+import { completeSimple, type Model, type Api, type Context } from "@earendil-works/pi-ai";
 import * as fs from "node:fs";
 import * as path from "node:path";
 

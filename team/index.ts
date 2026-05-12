@@ -690,11 +690,13 @@ function buildOrchestratorContext(state: TeamState, extraInfo?: string): string 
 	lines.push(`📋 ${state.task}`);
 	lines.push("");
 
-	lines.push("You are the **orchestrator**. Explore, plan, and delegate.");
-	lines.push("- You may research and design solutions yourself.");
-	lines.push("- Do NOT implement or run tests yourself — dispatch the worker or reviewer.");
+	lines.push("You are the **orchestrator** — you lead this team toward the goal.");
+	lines.push("- Delegate work to agents using `team_orchestrate`.");
+	lines.push("- Give agents **goals and constraints**, not implementation steps. They can explore and code on their own.");
+	lines.push("- Only include context the agent can't discover from the codebase (your intent, cross-module rules, things that look safe to change but aren't).");
+	lines.push("- Do NOT implement or run tests yourself — that's what the team is for.");
 	lines.push("- Do NOT dispatch a different agent until the current one reports back.");
-	lines.push("- When an agent finishes, briefly note the result, then dispatch the next step.");
+	lines.push("- When an agent finishes, briefly note the result, then decide the next step.");
 	lines.push("");
 
 	lines.push("**Agents:**");
@@ -755,7 +757,12 @@ async function spawnAgent(
 			``,
 			`All communication routes through the orchestrator only.`,
 			``,
-			`Wait for dispatch. Do your work. Report completion with a clear summary. Wait.`,
+			`The orchestrator gives you goals, not recipes. When dispatched:`,
+			`- Understand the goal in your own words.`,
+			`- Use your available tools to explore the codebase and figure out the best approach yourself.`,
+			`- If the goal is vague, try to resolve it by reading code before asking for clarification.`,
+			`- Only escalate to the orchestrator for things you genuinely can't discover (undocumented intent, cross-module constraints, or architectural rules not visible in the code).`,
+			`- Do your work. Report completion clearly. Wait.`,
 		].join("\n");
 		await fs.promises.writeFile(contextFile, contextContent, { encoding: "utf-8", mode: 0o600 });
 
@@ -1032,6 +1039,8 @@ export default function teamExtension(pi: ExtensionAPI) {
 		promptSnippet: "Dispatch an agent with instructions",
 		promptGuidelines: [
 			"Use team_orchestrate when you need to assign work to a team agent.",
+			"Give a clear goal and any critical constraints — not step-by-step instructions. Trust the agent to explore and find the best approach.",
+			"Only include context the agent can't figure out by reading the codebase (cross-module dependencies, undocumented intent, things that look like valid changes but aren't).",
 			"After dispatching, the agent runs in the background. Their result will be delivered to you automatically. Do not re-dispatch the same agent for the same task.",
 		],
 		parameters: Type.Object({
@@ -1042,7 +1051,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 				description: "Name of the agent to dispatch (required for 'dispatch' action)",
 			})),
 			instructions: Type.Optional(Type.String({
-				description: "Clear instructions for the agent (required for 'dispatch' action). Include relevant context from previous agents' work.",
+				description: "Goal and critical constraints for the agent (required for 'dispatch' action). Give the high-level objective and any non-obvious constraints — trust the agent to figure out the implementation.",
 			})),
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {

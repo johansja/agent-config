@@ -105,127 +105,48 @@ function loadState(cwd, task) {
 	}
 }
 
-const VALID_ROLES = ["implementation", "review"];
-
-function getAgentRoles(agent) {
-	return new Set(agent.roles ?? []);
-}
-
-function buildDelegationRules(agents) {
-	const roleToAgents = new Map();
-
-	for (const agent of agents) {
-		const roles = getAgentRoles(agent);
-		if (roles.size > 0) {
-			const unknownRoles = Array.from(roles).filter(r => !VALID_ROLES.includes(r));
-			if (unknownRoles.length > 0) {
-				console.warn(`team: agent ${agent.name} has unrecognized roles: ${unknownRoles.join(", ")}`);
-			}
-			const validRoles = Array.from(roles).filter(r => VALID_ROLES.includes(r));
-			for (const role of validRoles) {
-				if (!roleToAgents.has(role)) roleToAgents.set(role, []);
-				roleToAgents.get(role).push(agent.name);
-			}
-		}
-	}
-
-	if (roleToAgents.size === 0) return [];
-
-	const rules = [];
-	rules.push("**Delegation Rules — You must NOT do these yourself, delegate them:**");
-
-	const roleDescriptions = {
-		implementation: "Do NOT implement, code, or make changes — dispatch the worker",
-		review: "Do NOT review code, run tests, or audit quality — dispatch the reviewer",
-	};
-
-	for (const [role, agentNames] of roleToAgents) {
-		const desc = roleDescriptions[role];
-		if (desc) {
-			rules.push(`  - ${desc} (${agentNames.join(", ")})`);
-		}
-	}
-
-	return rules;
-}
-
 const MAX_CONTEXT_DISPATCHES = 20;
 
 function buildOrchestratorContext(state, extraInfo) {
 	const lines = [];
 
-	lines.push(`📋 **Team Orchestration — ${state.task}**`);
+	lines.push(`📋 ${state.task}`);
 	lines.push("");
 
-	// Behavioral instructions
-	lines.push("## Your Role");
-	lines.push("You are the **orchestrator**. Explore the codebase, plan solutions, and delegate execution to your team.");
-	lines.push("");
-	lines.push("**Rules:**");
-	lines.push("- You MAY research, read files, analyze code, and design solutions yourself.");
-	lines.push("- You MUST NOT implement code or run tests yourself — dispatch the worker or reviewer.");
-	lines.push("- You can send additional instructions to an agent that is still running. Do NOT dispatch a different agent until the current one reports back.");
-	lines.push("- When an agent finishes, briefly note their result, then dispatch the next agent. Do NOT re-analyze or re-review their work.");
+	lines.push("You are the **orchestrator**. Explore, plan, and delegate.");
+	lines.push("- You may research and design solutions yourself.");
+	lines.push("- Do NOT implement or run tests yourself — dispatch the worker or reviewer.");
+	lines.push("- Do NOT dispatch a different agent until the current one reports back.");
+	lines.push("- When an agent finishes, briefly note the result, then dispatch the next step.");
 	lines.push("");
 
-	// Agent roster
 	lines.push("**Agents:**");
 	for (const agent of state.agents) {
-		const toolsLabel = agent.tools && agent.tools.length > 0
-			? ` [tools: ${agent.tools.join(", ")}]`
-			: "";
 		const rolesLabel = agent.roles && agent.roles.length > 0
-			? ` [roles: ${agent.roles.join(", ")}]`
+			? ` [${agent.roles.join(", ")}]`
 			: "";
-		lines.push(`  ${agent.name}${toolsLabel}${rolesLabel} — ${agent.description}`);
-	}
-
-	lines.push("");
-
-	// Delegation rules
-	const delegationRules = buildDelegationRules(state.agents);
-	if (delegationRules.length > 0) {
-		lines.push(...delegationRules);
-		lines.push("");
-	}
-
-	// Completed work summary — limit to recent dispatches to prevent unbounded growth
-	lines.push("### Completed Work");
-	const recentDispatches = state.dispatchHistory.slice(-MAX_CONTEXT_DISPATCHES);
-	const agentsWithResults = new Map();
-	for (const entry of recentDispatches) {
-		if (entry.result && entry.result !== "[Session interrupted]" && entry.result !== "[Team completed]") {
-			if (!agentsWithResults.has(entry.agent)) agentsWithResults.set(entry.agent, []);
-			agentsWithResults.get(entry.agent).push(entry.result);
-		}
-	}
-	if (agentsWithResults.size > 0) {
-		for (const [agentName, results] of agentsWithResults) {
-			const summary = results.map((r, i) => `#${i + 1}: ${r}`).join("; ");
-			lines.push(`- ${agentName}: ${summary}`);
-		}
-	} else {
-		lines.push("- No completed work yet");
+		lines.push(`  ${agent.name}${rolesLabel} — ${agent.description}`);
 	}
 	lines.push("");
 
-	// Show stop reasons for recent dispatches
-	const stopsWithReasons = recentDispatches
-		.filter(d => d.result && d.stopReason)
-		.map(d => `  - ${d.agent}: ${d.result?.substring(0, 60) ?? ""} (stop: ${d.stopReason})`);
-	if (stopsWithReasons.length > 0) {
-		lines.push("**Stop reasons:**");
-		lines.push(...stopsWithReasons);
+	const done = state.dispatchHistory
+		.slice(-MAX_CONTEXT_DISPATCHES)
+		.filter((d) => d.result && d.result !== "[Session interrupted]" && d.result !== "[Team completed]");
+
+	if (done.length > 0) {
+		lines.push("**Done:**");
+		for (const d of done) {
+			lines.push(`- ${d.agent}: ${d.result.substring(0, 200)}${d.result.length > 200 ? "..." : ""}`);
+		}
 		lines.push("");
 	}
 
-	// Extra info (e.g., challenge details)
 	if (extraInfo) {
 		lines.push(extraInfo);
 		lines.push("");
 	}
 
-	lines.push("Use the `team_orchestrate` tool to dispatch an agent.");
+	lines.push("Use `team_orchestrate` to dispatch an agent.");
 
 	return lines.join("\n");
 }
@@ -414,80 +335,6 @@ describe("saveState / loadState round-trip", () => {
 	});
 });
 
-describe("getAgentRoles", () => {
-	it("returns explicit roles from agent config", () => {
-		const roles = getAgentRoles({ name: "planner", description: "Plans things", roles: ["planning"] });
-		assert.deepEqual(roles, new Set(["planning"]));
-	});
-
-	it("returns multiple explicit roles", () => {
-		const roles = getAgentRoles({ name: "hybrid", description: "Does many things", roles: ["research", "planning"] });
-		assert.deepEqual(roles, new Set(["research", "planning"]));
-	});
-
-	it("returns empty set when roles is missing", () => {
-		const roles = getAgentRoles({ name: "foobar", description: "does something random" });
-		assert.deepEqual(roles, new Set());
-	});
-
-	it("returns empty set when roles is empty array", () => {
-		const roles = getAgentRoles({ name: "empty", description: "No roles", roles: [] });
-		assert.deepEqual(roles, new Set());
-	});
-
-	it("does not infer roles from name/description", () => {
-		const roles = getAgentRoles({ name: "planner", description: "planning specialist" });
-		assert.deepEqual(roles, new Set());
-	});
-});
-
-describe("buildDelegationRules", () => {
-	it("returns empty array for empty roster", () => {
-		assert.deepEqual(buildDelegationRules([]), []);
-	});
-
-	it("returns empty array when no roles defined", () => {
-		const agents = [
-			{ name: "planner", description: "Plans things" },
-			{ name: "worker", description: "Does things" },
-		];
-		const rules = buildDelegationRules(agents);
-		assert.deepEqual(rules, []);
-	});
-
-	it("includes rules for agents with explicit roles", () => {
-		const agents = [
-			{ name: "reviewer", description: "Reviews things", roles: ["review"] },
-			{ name: "worker", description: "Does things", roles: ["implementation"] },
-		];
-		const rules = buildDelegationRules(agents);
-		assert.ok(rules.some((r) => r.includes("review")));
-		assert.ok(rules.some((r) => r.includes("implement")));
-		assert.ok(rules.some((r) => r.includes("reviewer")));
-		assert.ok(rules.some((r) => r.includes("worker")));
-	});
-
-	it("ignores unrecognized roles", () => {
-		const agents = [
-			{ name: "custom", description: "Custom role", roles: ["unknown-role"] },
-		];
-		const rules = buildDelegationRules(agents);
-		assert.deepEqual(rules, []);
-	});
-
-	it("filters out unrecognized roles but keeps valid ones", () => {
-		const agents = [
-			{ name: "hybrid", description: "Mixed roles", roles: ["implementation", "unknown-role", "review"] },
-		];
-		const rules = buildDelegationRules(agents);
-		assert.ok(rules.some((r) => r.includes("implement")));
-		assert.ok(rules.some((r) => r.includes("review")));
-		assert.ok(!rules.some((r) => r.includes("unknown-role")));
-	});
-
-
-});
-
 describe("buildOrchestratorContext", () => {
 	function makeState(dispatches = []) {
 		return {
@@ -500,6 +347,11 @@ describe("buildOrchestratorContext", () => {
 			status: "active",
 		};
 	}
+
+	it("contains header with task name", () => {
+		const ctx = buildOrchestratorContext(makeState());
+		assert.ok(ctx.includes("📋 test-task"));
+	});
 
 	it("contains 'orchestrator' in role section", () => {
 		const ctx = buildOrchestratorContext(makeState());
@@ -514,13 +366,8 @@ describe("buildOrchestratorContext", () => {
 
 	it("includes role labels in roster", () => {
 		const ctx = buildOrchestratorContext(makeState());
-		assert.ok(ctx.includes("[roles: implementation]"));
-		assert.ok(ctx.includes("[roles: review]"));
-	});
-
-	it("includes delegation rules when agents have roles", () => {
-		const ctx = buildOrchestratorContext(makeState());
-		assert.ok(ctx.includes("Delegation Rules"));
+		assert.ok(ctx.includes("[implementation]"));
+		assert.ok(ctx.includes("[review]"));
 	});
 
 	it("shows completed work from dispatches", () => {
@@ -528,7 +375,18 @@ describe("buildOrchestratorContext", () => {
 			{ agent: "worker", instructions: "do work", timestamp: 1, result: "done" },
 		]);
 		const ctx = buildOrchestratorContext(state);
-		assert.ok(ctx.includes("done"));
+		assert.ok(ctx.includes("**Done:**"));
+		assert.ok(ctx.includes("- worker: done"));
+	});
+
+	it("truncates long results to 200 chars", () => {
+		const longResult = "a".repeat(250);
+		const state = makeState([
+			{ agent: "worker", instructions: "do work", timestamp: 1, result: longResult },
+		]);
+		const ctx = buildOrchestratorContext(state);
+		assert.ok(ctx.includes("a".repeat(200) + "..."));
+		assert.ok(!ctx.includes("a".repeat(201)));
 	});
 
 	it("limits to MAX_CONTEXT_DISPATCHES (20)", () => {
@@ -550,9 +408,10 @@ describe("buildOrchestratorContext", () => {
 		assert.ok(ctx.includes("Extra context here"));
 	});
 
-	it("shows 'No completed work yet' when empty", () => {
+	it("does not show 'Done' section when no completed work", () => {
 		const ctx = buildOrchestratorContext(makeState());
-		assert.ok(ctx.includes("No completed work yet"));
+		assert.ok(!ctx.includes("**Done:**"));
+		assert.ok(!ctx.includes("No completed work yet"));
 	});
 });
 

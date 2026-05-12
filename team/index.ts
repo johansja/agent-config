@@ -683,133 +683,47 @@ async function resumeTeam(pi: ExtensionAPI, ctx: ExtensionContext, taskName: str
 
 // ─── Orchestrator context builder ────────────────────────────────────────────
 
-/**
- * Get an agent's explicit role categories from its `roles` frontmatter field.
- * Returns a set of role tags like "planning", "review", "implementation", "research".
- */
-function getAgentRoles(agent: AgentRosterEntry): Set<string> {
-	return new Set(agent.roles ?? []);
-}
-
-/**
- * Build delegation constraints based on available agent roles.
- * Returns lines that tell the orchestrator what NOT to do itself.
- */
-const VALID_ROLES = ["implementation", "review"];
-
-function buildDelegationRules(agents: AgentRosterEntry[]): string[] {
-	const roleToAgents = new Map<string, string[]>();
-
-	for (const agent of agents) {
-		const roles = getAgentRoles(agent);
-		if (roles.size > 0) {
-			const unknownRoles = Array.from(roles).filter(r => !VALID_ROLES.includes(r));
-			if (unknownRoles.length > 0) {
-				safeLog("warn", `team: agent ${agent.name} has unrecognized roles: ${unknownRoles.join(", ")}`);
-			}
-			const validRoles = Array.from(roles).filter(r => VALID_ROLES.includes(r));
-			for (const role of validRoles) {
-				if (!roleToAgents.has(role)) roleToAgents.set(role, []);
-				roleToAgents.get(role)!.push(agent.name);
-			}
-		}
-	}
-
-	if (roleToAgents.size === 0) return [];
-
-	const rules: string[] = [];
-	rules.push("**Delegation Rules — You must NOT do these yourself, delegate them:**");
-
-	const roleDescriptions: Record<string, string> = {
-		implementation: "Do NOT implement, code, or make changes — dispatch the worker",
-		review: "Do NOT review code, run tests, or audit quality — dispatch the reviewer",
-	};
-
-	for (const [role, agentNames] of roleToAgents) {
-		const desc = roleDescriptions[role];
-		if (desc) {
-			rules.push(`  - ${desc} (${agentNames.join(", ")})`);
-		}
-	}
-
-	return rules;
-}
 
 function buildOrchestratorContext(state: TeamState, extraInfo?: string): string {
 	const lines: string[] = [];
 
-	lines.push(`📋 **Team Orchestration — ${state.task}**`);
+	lines.push(`📋 ${state.task}`);
 	lines.push("");
 
-	// Behavioral instructions
-	lines.push("## Your Role");
-	lines.push("You are the **orchestrator**. Explore the codebase, plan solutions, and delegate execution to your team.");
-	lines.push("");
-	lines.push("**Rules:**");
-	lines.push("- You MAY research, read files, analyze code, and design solutions yourself.");
-	lines.push("- You MUST NOT implement code or run tests yourself — dispatch the worker or reviewer.");
-	lines.push("- You can send additional instructions to an agent that is still running. Do NOT dispatch a different agent until the current one reports back.");
-	lines.push("- When an agent finishes, briefly note their result, then dispatch the next agent. Do NOT re-analyze or re-review their work.");
+	lines.push("You are the **orchestrator**. Explore, plan, and delegate.");
+	lines.push("- You may research and design solutions yourself.");
+	lines.push("- Do NOT implement or run tests yourself — dispatch the worker or reviewer.");
+	lines.push("- Do NOT dispatch a different agent until the current one reports back.");
+	lines.push("- When an agent finishes, briefly note the result, then dispatch the next step.");
 	lines.push("");
 
-	// Agent roster
 	lines.push("**Agents:**");
 	for (const agent of state.agents) {
-		const toolsLabel = agent.tools && agent.tools.length > 0
-			? ` [tools: ${agent.tools.join(", ")}]`
-			: "";
 		const rolesLabel = agent.roles && agent.roles.length > 0
-			? ` [roles: ${agent.roles.join(", ")}]`
+			? ` [${agent.roles.join(", ")}]`
 			: "";
-		lines.push(`  ${agent.name}${toolsLabel}${rolesLabel} — ${agent.description}`);
-	}
-
-	lines.push("");
-
-	// Delegation rules
-	const delegationRules = buildDelegationRules(state.agents);
-	if (delegationRules.length > 0) {
-		lines.push(...delegationRules);
-		lines.push("");
-	}
-
-	// Completed work summary — limit to recent dispatches to prevent unbounded growth
-	lines.push("### Completed Work");
-	const recentDispatches = state.dispatchHistory.slice(-CONFIG.MAX_CONTEXT_DISPATCHES);
-	const agentsWithResults = new Map<string, string[]>();
-	for (const entry of recentDispatches) {
-		if (entry.result && entry.result !== "[Session interrupted]" && entry.result !== "[Team completed]") {
-			if (!agentsWithResults.has(entry.agent)) agentsWithResults.set(entry.agent, []);
-			agentsWithResults.get(entry.agent)!.push(entry.result);
-		}
-	}
-	if (agentsWithResults.size > 0) {
-		for (const [agentName, results] of agentsWithResults) {
-			const summary = results.map((r, i) => `#${i + 1}: ${r}`).join("; ");
-			lines.push(`- ${agentName}: ${summary}`);
-		}
-	} else {
-		lines.push("- No completed work yet");
+		lines.push(`  ${agent.name}${rolesLabel} — ${agent.description}`);
 	}
 	lines.push("");
 
-	// Show stop reasons for recent dispatches
-	const stopsWithReasons = recentDispatches
-		.filter(d => d.result && d.stopReason)
-		.map(d => `  - ${d.agent}: ${d.result?.substring(0, 60) ?? ""} (stop: ${d.stopReason})`);
-	if (stopsWithReasons.length > 0) {
-		lines.push("**Stop reasons:**");
-		lines.push(...stopsWithReasons);
+	const done = state.dispatchHistory
+		.slice(-CONFIG.MAX_CONTEXT_DISPATCHES)
+		.filter((d) => d.result && d.result !== "[Session interrupted]" && d.result !== "[Team completed]");
+
+	if (done.length > 0) {
+		lines.push("**Done:**");
+		for (const d of done) {
+			lines.push(`- ${d.agent}: ${d.result.substring(0, 200)}${d.result.length > 200 ? "..." : ""}`);
+		}
 		lines.push("");
 	}
 
-	// Extra info (e.g., challenge details)
 	if (extraInfo) {
 		lines.push(extraInfo);
 		lines.push("");
 	}
 
-	lines.push("Use the `team_orchestrate` tool to dispatch an agent.");
+	lines.push("Use `team_orchestrate` to dispatch an agent.");
 
 	return lines.join("\n");
 }
@@ -832,27 +746,16 @@ async function spawnAgent(
 
 	const contextFile = path.join(tmpDir, `context-${agent.name}.md`);
 		const contextContent = [
-			`# Team Working Protocol — ${agent.name}`,
+			`# ${agent.name} — ${task}`,
 			``,
-			`You are the **${agent.name}** agent for task **${task}**.`,
+			`You are the **${agent.name}** agent in team **${task}**.`,
 			``,
-			`## Workflow Resources`,
+			`- Workflow dir: \`.pi/workflow/${task}/\``,
+			`- Mailbox: \`.pi/workflow/${task}/mailbox/${agent.name}.json\``,
 			``,
-			`- Workflow directory: \`.pi/workflow/${task}/\``,
-			`- Your mailbox: \`.pi/workflow/${task}/mailbox/${agent.name}.json\``,
+			`All communication routes through the orchestrator only.`,
 			``,
-			`## Communication Protocol`,
-			``,
-			`All communication routes through the orchestrator — you never talk directly to other agents.`,
-			``,
-			`- **Communication**: All communication routes through the orchestrator.`,
-			``,
-			`## Handoff Protocol`,
-			``,
-			`1. **Wait for dispatch** — Do not start work yet. The task instructions will arrive as a dispatch message from the orchestrator.`,
-			`2. **Do your work** — Execute your responsibilities as defined by your role.`,
-			`3. **Report completion** — Your final response will be automatically sent to the orchestrator. Include a clear summary of your work.`,
-			`4. **Wait** — After reporting, wait for further instructions from the orchestrator.`,
+			`Wait for dispatch. Do your work. Report completion with a clear summary. Wait.`,
 		].join("\n");
 		await fs.promises.writeFile(contextFile, contextContent, { encoding: "utf-8", mode: 0o600 });
 

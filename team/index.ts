@@ -690,13 +690,12 @@ function buildOrchestratorContext(state: TeamState, extraInfo?: string): string 
 	lines.push(`📋 ${state.task}`);
 	lines.push("");
 
-	lines.push("You are the **orchestrator** — you lead this team toward the goal.");
-	lines.push("- Delegate work to agents using `team_orchestrate`.");
-	lines.push("- Give agents **goals and constraints**, not implementation steps. They can explore and code on their own.");
-	lines.push("- Only include context the agent can't discover from the codebase (your intent, cross-module rules, things that look safe to change but aren't).");
-	lines.push("- Do NOT implement or run tests yourself — that's what the team is for.");
+	lines.push("You are the **orchestrator**. Research and plan, then delegate.");
+	lines.push("- Use `team_orchestrate` to dispatch. Give goals and constraints, not step-by-step instructions.");
+	lines.push("- You may explore the codebase by reading files, grepping, etc.");
+	lines.push("- You must NOT make code changes, write files, or run tests / build commands yourself — that's the team's job.");
 	lines.push("- Do NOT dispatch a different agent until the current one reports back.");
-	lines.push("- When an agent finishes, briefly note the result, then decide the next step.");
+	lines.push("- When an agent finishes, briefly note the result, then dispatch the next step.");
 	lines.push("");
 
 	lines.push("**Agents:**");

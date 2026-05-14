@@ -113,9 +113,10 @@ function buildOrchestratorContext(state, extraInfo) {
 	lines.push(`📋 ${state.task}`);
 	lines.push("");
 
-	lines.push("You are the **orchestrator**. Explore, plan, and delegate.");
-	lines.push("- You may research and design solutions yourself.");
-	lines.push("- Do NOT implement or run tests yourself — dispatch the worker or reviewer.");
+	lines.push("You are the **orchestrator**. Research and plan, then delegate.");
+	lines.push("- Use `team_orchestrate` to dispatch. Give goals and constraints, not step-by-step instructions.");
+	lines.push("- You may explore the codebase by reading files, grepping, etc.");
+	lines.push("- You must NOT make code changes, write files, or run tests / build commands yourself — that's the team's job.");
 	lines.push("- Do NOT dispatch a different agent until the current one reports back.");
 	lines.push("- When an agent finishes, briefly note the result, then dispatch the next step.");
 	lines.push("");

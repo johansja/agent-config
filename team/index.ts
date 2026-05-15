@@ -1329,6 +1329,17 @@ export default function teamExtension(pi: ExtensionAPI) {
 		const lastAssistant = findLastAssistantMessage(event.messages);
 		const stopReason = lastAssistant?.stopReason ?? "unknown";
 
+		// Pi handles non-terminal states internally:
+		// - "error" with context overflow → compact + retry (may fail silently in core)
+		// - "error" with transient API errors → auto-retry
+		// - "aborted" → user cancelled, not a completion
+		// Do NOT report these to the orchestrator; wait for the terminal agent_end.
+		if (stopReason === "error" || stopReason === "aborted") {
+			// Keep state alive so the terminal agent_end can still report when pi
+			// finishes its internal recovery.
+			return;
+		}
+
 		// Load state
 		const state = loadState(ctx.cwd, task);
 		if (!state) return;
@@ -1356,7 +1367,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 		// Agent session ended
 		saveState(ctx.cwd, state);
 
-		// Write result to orchestrator mailbox ALWAYS
+		// Write result to orchestrator mailbox (terminal completions only)
 		const orchestratorMailbox = mailboxPath(ctx.cwd, task, "orchestrator");
 		appendToMailbox(orchestratorMailbox, {
 			type: "message",
@@ -1367,14 +1378,14 @@ export default function teamExtension(pi: ExtensionAPI) {
 		});
 
 		// Notify
-		terminalNotify("Pi", `${role} ended (${stopReason}) for ${task}`);
+		terminalNotify("Pi", `${role} completed (${stopReason}) for ${task}`);
 		try {
-			await cmuxNotify("Pi", `${role} ended (${stopReason}) for ${task}`);
+			await cmuxNotify("Pi", `${role} completed (${stopReason}) for ${task}`);
 		} catch {
 			// cmux not available
 		}
 
-		// Clean up module-level state
+		// Clean up module-level state — only for terminal completions
 		if (currentWorkerState?.task === task && currentWorkerState?.role === role) {
 			currentWorkerState = null;
 		}

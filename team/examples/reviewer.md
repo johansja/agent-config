@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: Scrutinizes code for correctness, quality, security, and test coverage
-tools: read, grep, find, ls, bash, bash
+tools: read, grep, find, ls, bash
 roles: review
 model: <your-preferred-model>
 thinking: high

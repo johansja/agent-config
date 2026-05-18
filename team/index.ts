@@ -86,7 +86,6 @@ interface TeamState {
 	surfaceIds: Record<string, string>;
 	dispatchHistory: DispatchEntry[];
 	originalSystemPrompt?: string;
-	pendingResumeContext?: string;
 	pendingTeamResume?: number; // timestamp (Date.now()) — auto-expires after 5 minutes
 	orchestratorSessionFile?: string;
 }
@@ -485,54 +484,6 @@ function listAvailableTeams(cwd: string): AvailableTeam[] {
 	return teams;
 }
 
-function buildResumeContext(state: TeamState): string {
-	const lines: string[] = [];
-
-	lines.push("🔄 **Session Resumed — Team \"" + state.task + "\"**");
-	lines.push("");
-
-	lines.push("**Do NOT re-dispatch agents whose work was already completed (result is not '[Session interrupted]').**");
-	lines.push("");
-
-	// Completed work
-	const completedDispatches = state.dispatchHistory.filter(d => d.result && d.result !== "[Session interrupted]" && d.result !== "[Team completed]");
-	const interruptedDispatches = state.dispatchHistory.filter(d => d.result === "[Session interrupted]");
-
-	if (completedDispatches.length > 0) {
-		lines.push("**Completed work (these agents already have results — do not re-dispatch them for the same task):**");
-		for (const d of completedDispatches) {
-			lines.push(`  ✅ ${d.agent}: ${d.result ?? "No result"}`);
-		}
-		lines.push("");
-	}
-
-	if (interruptedDispatches.length > 0) {
-		lines.push("**Interrupted tasks (these agents were working when the session ended and their work was not completed):**");
-		for (const d of interruptedDispatches) {
-			lines.push(`  ⚠️ ${d.agent}: ${d.instructions ?? "No instructions"}`);
-		}
-		lines.push("");
-	}
-
-	// Agent roster
-	lines.push("**Agents:**");
-	for (const agent of state.agents) {
-		lines.push(`  ${agent.name} — ${agent.description}`);
-	}
-	lines.push("");
-
-	// Status summary
-	if (completedDispatches.length > 0 && interruptedDispatches.length === 0) {
-		lines.push("All previously dispatched work has been completed. No re-dispatch is necessary.");
-	} else if (interruptedDispatches.length > 0) {
-		lines.push("Some agents were interrupted. Their previous tasks were not completed.");
-	} else {
-		lines.push("Use the `team_orchestrate` tool to dispatch an agent.");
-	}
-
-	return lines.join("\n");
-}
-
 function ensureResearchTools(pi: ExtensionAPI): void {
 	const researchTools = ["grep", "find", "ls"];
 	const current = pi.getActiveTools();
@@ -670,11 +621,6 @@ async function resumeTeam(pi: ExtensionAPI, ctx: ExtensionContext, taskName: str
 
 	ensureResearchTools(pi);
 
-	// Store resume context as system-level info (not a user message) to avoid re-execution
-	const resumeContext = buildResumeContext(state);
-	state.pendingResumeContext = resumeContext;
-	saveState(ctx.cwd, state);
-
 	ctx.ui.notify(`Team "${taskName}" resumed. ${state.agents.length} agents re-spawned.`, "info");
 	await cmuxLog("info", `Team "${taskName}" resumed with ${state.agents.length} agents`);
 
@@ -687,18 +633,24 @@ async function resumeTeam(pi: ExtensionAPI, ctx: ExtensionContext, taskName: str
 function buildOrchestratorContext(state: TeamState, extraInfo?: string): string {
 	const lines: string[] = [];
 
+	const agentNames = state.agents.map(a => a.name);
+	const namesText = agentNames.length <= 2
+		? agentNames.join(" and ")
+		: agentNames.slice(0, -1).join(", ") + " and " + agentNames.at(-1);
+
 	lines.push(`📋 ${state.task}`);
 	lines.push("");
 
-	lines.push("You are the **orchestrator**. Research and plan, then delegate.");
+	lines.push(`You are the team lead managing ${namesText}.`);
 	lines.push("- Use `team_orchestrate` to dispatch. Give goals and constraints, not step-by-step instructions.");
-	lines.push("- You may explore the codebase by reading files, grepping, etc.");
-	lines.push("- You must NOT make code changes, write files, or run tests / build commands yourself — that's the team's job.");
-	lines.push("- Do NOT dispatch a different agent until the current one reports back.");
-	lines.push("- When an agent finishes, briefly note the result, then dispatch the next step.");
+	lines.push("- While an agent is working, stay active — chat with the user, plan the next move, or prepare materials.");
+	lines.push("- If an agent needs course correction, send a follow-up (redispatch the same agent).");
+	lines.push("- Only dispatch one agent at a time. Wait for their result before dispatching a different agent.");
+	lines.push("- Typical flow for implementation tasks: dispatch implementor → review deliverable → dispatch reviewer for quality check → if critical issues found, send implementor back to fix → repeat as needed.");
+	lines.push("- When an agent finishes, briefly note what they delivered, then decide what's next.");
 	lines.push("");
 
-	lines.push("**Agents:**");
+	lines.push(`**Agents (${state.agents.length} total — you may ONLY dispatch these):**`);
 	for (const agent of state.agents) {
 		const rolesLabel = agent.roles && agent.roles.length > 0
 			? ` [${agent.roles.join(", ")}]`
@@ -706,15 +658,22 @@ function buildOrchestratorContext(state: TeamState, extraInfo?: string): string 
 		lines.push(`  ${agent.name}${rolesLabel} — ${agent.description}`);
 	}
 	lines.push("");
+	lines.push("You may ONLY dispatch agents listed above. Do not invent or reference any other agent names.");
+	lines.push("");
 
 	const done = state.dispatchHistory
 		.slice(-CONFIG.MAX_CONTEXT_DISPATCHES)
-		.filter((d) => d.result && d.result !== "[Session interrupted]" && d.result !== "[Team completed]");
+		.filter((d) => d.result && d.result !== "[Team completed]");
 
 	if (done.length > 0) {
 		lines.push("**Done:**");
 		for (const d of done) {
-			lines.push(`- ${d.agent}: ${d.result.substring(0, 200)}${d.result.length > 200 ? "..." : ""}`);
+			const isInterrupted = d.result === "[Session interrupted]";
+			const status = isInterrupted ? "🔄" : "✅";
+			const text = isInterrupted
+				? "[interrupted — re-dispatch if still needed]"
+				: `${d.result.substring(0, 200)}${d.result.length > 200 ? "..." : ""}`;
+			lines.push(`- ${status} ${d.agent}: ${text}`);
 		}
 		lines.push("");
 	}
@@ -1040,7 +999,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 			"Use team_orchestrate when you need to assign work to a team agent.",
 			"Give a clear goal and any critical constraints — not step-by-step instructions. Trust the agent to explore and find the best approach.",
 			"Only include context the agent can't figure out by reading the codebase (cross-module dependencies, undocumented intent, things that look like valid changes but aren't).",
-			"After dispatching, the agent runs in the background. Their result will be delivered to you automatically. Do not re-dispatch the same agent for the same task.",
+			"After dispatching, the agent runs in the background. Their result will be delivered to you automatically. If the agent is going off-track or you have new critical context, you MAY redispatch the SAME agent with updated instructions — this sends a steer message to correct their course.",
 		],
 		parameters: Type.Object({
 			action: StringEnum(["dispatch"] as const, {
@@ -1496,21 +1455,13 @@ export default function teamExtension(pi: ExtensionAPI) {
 		// Build and inject orchestrator context on every turn
 		const context = buildOrchestratorContext(state);
 
-		// Inject pending resume context as system-level info (not a user message)
-		let resumeContext = "";
-		if (state.pendingResumeContext) {
-			resumeContext = "\n\n" + state.pendingResumeContext;
-			state.pendingResumeContext = undefined;
-			saveState(ctx.cwd, state);
-		}
-
 		currentTeamState = state;
 
 		if (!state.originalSystemPrompt) {
 			state.originalSystemPrompt = event.systemPrompt;
 			saveState(ctx.cwd, state);
 		}
-		const systemPrompt = state.originalSystemPrompt + "\n\n" + context + resumeContext;
+		const systemPrompt = state.originalSystemPrompt + "\n\n" + context;
 		return { systemPrompt };
 	});
 

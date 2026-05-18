@@ -1062,6 +1062,15 @@ export default function teamExtension(pi: ExtensionAPI) {
 					};
 				}
 
+				// Mark any previous incomplete dispatch for this agent as abandoned
+				for (let i = state.dispatchHistory.length - 1; i >= 0; i--) {
+					if (state.dispatchHistory[i].agent === params.agent && !state.dispatchHistory[i].result) {
+						state.dispatchHistory[i].result = "[Task abandoned — new instructions issued]";
+						state.dispatchHistory[i].stopReason = "abandoned";
+						break;
+					}
+				}
+
 				// Record dispatch
 				const dispatchId = crypto.randomUUID();
 				state.dispatchHistory.push({

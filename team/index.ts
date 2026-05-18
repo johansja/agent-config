@@ -630,7 +630,7 @@ async function resumeTeam(pi: ExtensionAPI, ctx: ExtensionContext, taskName: str
 // ─── Orchestrator context builder ────────────────────────────────────────────
 
 
-function buildOrchestratorContext(state: TeamState, extraInfo?: string): string {
+function buildOrchestratorContext(state: TeamState): string {
 	const lines: string[] = [];
 
 	const agentNames = state.agents.map(a => a.name);
@@ -678,10 +678,6 @@ function buildOrchestratorContext(state: TeamState, extraInfo?: string): string 
 		lines.push("");
 	}
 
-	if (extraInfo) {
-		lines.push(extraInfo);
-		lines.push("");
-	}
 
 	lines.push("Use `team_orchestrate` to dispatch an agent.");
 
@@ -1210,6 +1206,14 @@ export default function teamExtension(pi: ExtensionAPI) {
 			const fallbackState = loadState(ctx.cwd, resumeTask);
 			if (fallbackState && fallbackState.status === "active") {
 				currentTeamState = fallbackState;
+				// Restore waiting state so the safety net still works after /reload
+				const latestIncomplete = fallbackState.dispatchHistory
+					.slice()
+					.reverse()
+					.find(d => !d.result);
+				if (latestIncomplete) {
+					orchestratorWaitingFor = latestIncomplete.agent;
+				}
 				setupMailboxWatching(pi, ctx, resumeTask, "orchestrator", () => {
 					orchestratorWaitingFor = null;
 				});

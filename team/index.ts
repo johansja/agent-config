@@ -223,8 +223,10 @@ function loadState(cwd: string, task: string): TeamState | null {
 		// Remove obsolete fields
 		delete (state as any).agentStatus;
 		return state;
-	} catch (e) {
-		safeLog("warn", `team: failed to load state for ${task}: ${e}`);
+	} catch (e: any) {
+		if (e?.code !== "ENOENT") {
+			safeLog("warn", `team: failed to load state for ${task}: ${e}`);
+		}
 		return null;
 	}
 }

@@ -1429,6 +1429,9 @@ export default function teamExtension(pi: ExtensionAPI) {
 				await cmuxCloseSurface(surfaceId);
 			}
 
+			// Reset tab title so cmux auto-names on next startup
+			await cmuxRenameTab(undefined, "");
+
 			// Persist shutdown status so future resumes know this team was cleanly ended
 			state.status = "shutdown";
 			state.surfaceIds = {};

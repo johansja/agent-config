@@ -110,7 +110,7 @@ const MAX_CONTEXT_DISPATCHES = 20;
 function buildOrchestratorContext(state, extraInfo) {
 	const lines = [];
 
-	lines.push(`📋 ${state.task}`);
+	lines.push(`${state.task}`);
 	lines.push("");
 
 	lines.push("You are the **orchestrator**. Research and plan, then delegate.");
@@ -351,7 +351,7 @@ describe("buildOrchestratorContext", () => {
 
 	it("contains header with task name", () => {
 		const ctx = buildOrchestratorContext(makeState());
-		assert.ok(ctx.includes("📋 test-task"));
+		assert.ok(ctx.includes("test-task"));
 	});
 
 	it("contains 'orchestrator' in role section", () => {

@@ -282,7 +282,7 @@ export default function questionnaire(pi: ExtensionAPI) {
 						}
 						const canSubmit = allAnswered();
 						const isSubmitTab = currentTab === questions.length;
-						const submitText = " ✓ Submit ";
+						const submitText = " Submit ";
 						const submitStyled = isSubmitTab
 							? theme.bg("selectedBg", theme.fg("text", submitText))
 							: theme.fg(canSubmit ? "success" : "dim", submitText);
@@ -301,7 +301,7 @@ export default function questionnaire(pi: ExtensionAPI) {
 							const color = selected ? "accent" : "text";
 							// Mark "Type something" differently when in input mode
 							if (isOther && inputMode) {
-								add(prefix + theme.fg("accent", `${i + 1}. ${opt.label} ✎`));
+								add(prefix + theme.fg("accent", `${i + 1}. ${opt.label}`));
 							} else {
 								add(prefix + theme.fg(color, `${i + 1}. ${opt.label}`));
 							}
@@ -420,10 +420,10 @@ export default function questionnaire(pi: ExtensionAPI) {
 			}
 			const lines = details.answers.map((a) => {
 				if (a.wasCustom) {
-					return `${theme.fg("success", "✓ ")}${theme.fg("accent", a.id)}: ${theme.fg("muted", "(wrote) ")}${a.label}`;
+					return `${theme.fg("success", "")}${theme.fg("accent", a.id)}: ${theme.fg("muted", "(wrote) ")}${a.label}`;
 				}
 				const display = a.index ? `${a.index}. ${a.label}` : a.label;
-				return `${theme.fg("success", "✓ ")}${theme.fg("accent", a.id)}: ${display}`;
+				return `${theme.fg("success", "")}${theme.fg("accent", a.id)}: ${display}`;
 			});
 			return new Text(lines.join("\n"), 0, 0);
 		},

@@ -468,7 +468,7 @@ export default function (pi: ExtensionAPI) {
 			}
 			notify("Pi", "Permission gate: awaiting input");
 			const choice = await ctx.ui.select(
-				`⚠️ AI safety check failed\n\n  ${truncateCommand(command)}\n\nThe LLM could not classify this command. Allow it?`,
+				`AI safety check failed\n\n  ${truncateCommand(command)}\n\nThe LLM could not classify this command. Allow it?`,
 				["Yes", "No"],
 			);
 			if (choice !== "Yes") {
@@ -492,10 +492,10 @@ export default function (pi: ExtensionAPI) {
 				};
 			}
 
-			const riskEmoji = verdict.risk === "high" ? "🔴" : verdict.risk === "medium" ? "🟡" : "🟢";
+			const riskEmoji = "";
 			notify("Pi", `Permission gate: ${verdict.risk} risk command`);
 			const choice = await ctx.ui.select(
-				`${riskEmoji} Potentially dangerous command (${verdict.risk} risk)\n\n  ${truncateCommand(command)}\n\n${verdict.reason}\n\nAllow?`,
+				`Potentially dangerous command (${verdict.risk} risk)\n\n  ${truncateCommand(command)}\n\n${verdict.reason}\n\nAllow?`,
 				["Yes", "No"],
 			);
 

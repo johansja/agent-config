@@ -662,8 +662,7 @@ async function resumeTeam(pi: ExtensionAPI, ctx: ExtensionContext, taskName: str
 	saveState(ctx.cwd, state);
 
 	// Set session name and update widget
-	const orchLabel = `🔷 orchestrator: ${taskName}`;
-	pi.setSessionName(orchLabel);
+	pi.setSessionName(`orchestrator: ${taskName}`);
 
 	ensureResearchTools(pi);
 
@@ -684,7 +683,7 @@ function buildOrchestratorContext(state: TeamState): string {
 		? agentNames.join(" and ")
 		: agentNames.slice(0, -1).join(", ") + " and " + agentNames.at(-1);
 
-	lines.push(`📋 ${state.task}`);
+	lines.push(`${state.task}`);
 	lines.push("");
 
 	lines.push(`You are the team lead managing ${namesText}.`);
@@ -715,7 +714,7 @@ function buildOrchestratorContext(state: TeamState): string {
 		lines.push("**Done:**");
 		for (const d of done) {
 			const isInterrupted = d.result === "[Session interrupted]";
-			const status = isInterrupted ? "🔄" : "✅";
+			const status = isInterrupted ? "" : "";
 			const text = isInterrupted
 				? "[interrupted — re-dispatch if still needed]"
 				: `${d.result.substring(0, 200)}${d.result.length > 200 ? "..." : ""}`;
@@ -874,7 +873,7 @@ function processOrchestratorMailbox(
 		} else if (msg.type === "shutdown") {
 			// Orchestrator receiving a shutdown notice (rare — mostly agent→orchestrator)
 			saveState(ctx.cwd, state);
-			parts.push(`Received message from "${msg.from}":\n\n🔴 The agent has shut down.`);
+			parts.push(`Received message from "${msg.from}":\n\n The agent has shut down.`);
 		}
 	}
 
@@ -901,7 +900,7 @@ function processWorkerMailbox(
 			const dispatchText = msg.instructions ?? msg.body ?? "New task from orchestrator";
 			pi.sendUserMessage(`Received message from "orchestrator":\n\n${dispatchText}`, { deliverAs: "steer" });
 		} else if (msg.type === "shutdown") {
-			ctx.ui.notify("🛑 Shutdown requested by orchestrator. Wrapping up.", "info");
+			ctx.ui.notify("Shutdown requested by orchestrator. Wrapping up.", "info");
 		}
 	}
 }
@@ -1192,7 +1191,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 			const agentName = (result.details as { dispatchedTo?: string } | undefined)?.dispatchedTo;
 			let text: string;
 			if (result.isError) {
-				text = theme.fg("error", "✗ Error");
+				text = theme.fg("error", "Error");
 			} else if (agentName) {
 				text = theme.fg("success", `↻ Dispatched → ${agentName}`);
 			} else {
@@ -1297,7 +1296,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 			currentWorkerState = { task: envTask, role: envRole };
 			saveWorkerState(pi, currentWorkerState);
 			setupMailboxWatching(pi, ctx, envTask, envRole);
-			pi.setSessionName(`⚪ ${envRole}: ${envTask}`);
+			pi.setSessionName(`${envRole}: ${envTask}`);
 			ctx.ui.notify(`Team session: ${envRole} for ${envTask}`, "info");
 
 			// Save session file path for resume
@@ -1316,7 +1315,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 		if (sessionTask) {
 			const state = loadState(ctx.cwd, sessionTask);
 			if (state) {
-				ctx.ui.notify(`🔄 Previous team "${sessionTask}" found. Use /team resume ${sessionTask} to resume.`, "info");
+				ctx.ui.notify(` Previous team "${sessionTask}" found. Use /team resume ${sessionTask} to resume.`, "info");
 			}
 		}
 
@@ -1325,10 +1324,10 @@ export default function teamExtension(pi: ExtensionAPI) {
 
 		if (availableTeams.length >= 1) {
 			const lines: string[] = availableTeams.length === 1
-				? ["🔄 Team found:"]
-				: ["🔄 Multiple teams found:"];
+				? [" Team found:"]
+				: [" Multiple teams found:"];
 			for (const team of availableTeams) {
-				const icon = team.status === "active" ? "🟢" : "🔴";
+				const icon = team.status === "active" ? "" : "";
 				const timeStr = team.lastActivity > 0 ? new Date(team.lastActivity).toLocaleString() : "unknown";
 				lines.push(`  ${icon} ${team.task} — Agents: ${team.agentCount} | Last: ${timeStr}`);
 			}
@@ -1697,8 +1696,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 					saveState(ctx.cwd, currentTeamState);
 
 					// Name the session
-					const orchLabel = `🔷 orchestrator: ${taskName}`;
-					pi.setSessionName(orchLabel);
+					pi.setSessionName(`orchestrator: ${taskName}`);
 
 					// Save orchestrator session file for resume
 					if (ctx.sessionManager?.getSessionFile) {
@@ -1710,7 +1708,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 						}
 					}
 
-					const agentList = roster.map((a) => `  🔵 ${a.name} — ${a.description}`).join("\n");
+					const agentList = roster.map((a) => `  ${a.name} — ${a.description}`).join("\n");
 					ensureResearchTools(pi);
 					ctx.ui.notify(`Team initialized for "${taskName}"\nAgents:\n${agentList}\n\nDispatch agents using team_orchestrate.`, "info");
 					await cmuxLog("info", `Team initialized for ${taskName} with agents: ${roster.map((a) => a.name).join(", ")}`);
@@ -1741,9 +1739,9 @@ export default function teamExtension(pi: ExtensionAPI) {
 						return;
 					}
 
-					const lines: string[] = [`📋 Team: ${taskName} (${state.status ?? "active"})`];
+					const lines: string[] = [`Team: ${taskName} (${state.status ?? "active"})`];
 
-					lines.push("\n👥 Agents:");
+					lines.push("\n Agents:");
 					for (const agent of state.agents) {
 						const surface = state.surfaceIds[agent.name] ? ` (surface: ${state.surfaceIds[agent.name]})` : "";
 						const toolsLabel = agent.tools && agent.tools.length > 0
@@ -1755,23 +1753,23 @@ export default function teamExtension(pi: ExtensionAPI) {
 					// Reports
 					const completedReports = state.dispatchHistory.filter(e => e.result);
 					if (completedReports.length > 0) {
-						lines.push("\n📄 Reports:");
+						lines.push("\n Reports:");
 						for (const entry of completedReports) {
-							lines.push(`  ✅ ${entry.agent}`);
+							lines.push(`   ${entry.agent}`);
 						}
 					}
 
 					// Mailboxes
 					const mdir = mailboxDir(ctx.cwd, taskName);
 					if (fs.existsSync(mdir)) {
-						lines.push("\n📬 Mailboxes:");
+						lines.push("\n Mailboxes:");
 						const mailboxFiles = fs.readdirSync(mdir).filter((f) => f.endsWith(".json"));
 						for (const mf of mailboxFiles) {
 							const mp = path.join(mdir, mf);
 							const messages = readMailbox(mp, ctx);
 							const unread = messages.length;
 							const name = mf.replace(".json", "");
-							lines.push(`  ${unread > 0 ? "🔴" : "🟢"} ${name}: ${unread} message${unread !== 1 ? "s" : ""}`);
+							lines.push(`  ${unread > 0 ? "" : ""} ${name}: ${unread} message${unread !== 1 ? "s" : ""}`);
 						}
 					}
 
@@ -1802,9 +1800,9 @@ export default function teamExtension(pi: ExtensionAPI) {
 							return;
 						}
 
-						const lines: string[] = ["🔄 Available Teams:\n"];
+						const lines: string[] = [" Available Teams:\n"];
 						for (const team of teams) {
-							const teamStatusIcon = team.status === "active" ? "🟢" : "🔴";
+							const teamStatusIcon = team.status === "active" ? "" : "";
 							const workingTag = team.hasWorkingAgents ? " (has working agents)" : "";
 							const timeStr = team.lastActivity > 0 ? new Date(team.lastActivity).toLocaleString() : "unknown";
 							lines.push(`  ${teamStatusIcon} ${team.task}${workingTag}`);
@@ -1896,9 +1894,9 @@ export default function teamExtension(pi: ExtensionAPI) {
 						return;
 					}
 
-					const lines: string[] = ["🤖 Available Agents:\n"];
+					const lines: string[] = ["Available Agents:\n"];
 					for (const agent of discovery.agents) {
-						const source = agent.source === "user" ? "👤" : "📁";
+						const source = agent.source === "user" ? "" : "";
 						const model = agent.model ? ` [${agent.model}]` : "";
 						const tools = agent.tools
 							? ` (tools: ${agent.tools.join(", ")})`
@@ -1935,7 +1933,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 						return;
 					}
 
-					const lines: string[] = [`📜 Dispatch History: ${taskName}\n`];
+					const lines: string[] = [` Dispatch History: ${taskName}\n`];
 
 					if (state.dispatchHistory.length === 0) {
 						lines.push("No dispatches yet.");
@@ -1943,7 +1941,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 						for (let i = 0; i < state.dispatchHistory.length; i++) {
 							const entry = state.dispatchHistory[i];
 							const time = new Date(entry.timestamp).toLocaleTimeString();
-							const resultIcon = entry.result ? "✅" : "🟡";
+							const resultIcon = entry.result ? "" : "";
 							lines.push(`${i + 1}. ${resultIcon} ${entry.agent} — ${time}`);
 							lines.push(`   Instructions: ${entry.instructions}`);
 							if (entry.result) {
@@ -2008,9 +2006,9 @@ export default function teamExtension(pi: ExtensionAPI) {
 							break;
 						}
 
-						const summaryLines = ["🧹 Teams to delete:"];
+						const summaryLines = ["Teams to delete:"];
 						for (const team of allTeams) {
-							const icon = team.status === "active" ? "🟢" : "🔴";
+							const icon = team.status === "active" ? "" : "";
 							summaryLines.push(`  ${icon} ${team.task} (${team.status})${team.projectLabel}`);
 						}
 
@@ -2056,7 +2054,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 								}
 
 								await fs.promises.rm(teamDir, { recursive: true, force: true });
-								ctx.ui.notify(`🧹 Cleaned up team "${team.task}"${team.projectLabel}`, "info");
+								ctx.ui.notify(`Cleaned up team "${team.task}"${team.projectLabel}`, "info");
 								cleaned.push(team.task);
 							} catch (e: any) {
 								safeLog("error", `team: failed to clean up team "${team.task}": ${e}`);
@@ -2129,7 +2127,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 						}
 
 						await fs.promises.rm(teamDir, { recursive: true, force: true });
-						ctx.ui.notify(`🧹 Cleaned up team "${targetTeam}"${projectLabel}`, "info");
+						ctx.ui.notify(`Cleaned up team "${targetTeam}"${projectLabel}`, "info");
 						await cmuxLog("info", `Cleaned up team "${targetTeam}"`);
 						break;
 					}

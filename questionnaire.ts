@@ -420,10 +420,10 @@ export default function questionnaire(pi: ExtensionAPI) {
 			}
 			const lines = details.answers.map((a) => {
 				if (a.wasCustom) {
-					return `${theme.fg("success", "")}${theme.fg("accent", a.id)}: ${theme.fg("muted", "(wrote) ")}${a.label}`;
+					return `${theme.fg("accent", a.id)}: ${theme.fg("muted", "(wrote) ")}${a.label}`;
 				}
 				const display = a.index ? `${a.index}. ${a.label}` : a.label;
-				return `${theme.fg("success", "")}${theme.fg("accent", a.id)}: ${display}`;
+				return `${theme.fg("accent", a.id)}: ${display}`;
 			});
 			return new Text(lines.join("\n"), 0, 0);
 		},

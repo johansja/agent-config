@@ -492,7 +492,6 @@ export default function (pi: ExtensionAPI) {
 				};
 			}
 
-			const riskEmoji = "";
 			notify("Pi", `Permission gate: ${verdict.risk} risk command`);
 			const choice = await ctx.ui.select(
 				`Potentially dangerous command (${verdict.risk} risk)\n\n  ${truncateCommand(command)}\n\n${verdict.reason}\n\nAllow?`,

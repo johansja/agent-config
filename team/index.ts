@@ -714,11 +714,10 @@ function buildOrchestratorContext(state: TeamState): string {
 		lines.push("**Done:**");
 		for (const d of done) {
 			const isInterrupted = d.result === "[Session interrupted]";
-			const status = isInterrupted ? "" : "";
 			const text = isInterrupted
 				? "[interrupted — re-dispatch if still needed]"
 				: `${d.result.substring(0, 200)}${d.result.length > 200 ? "..." : ""}`;
-			lines.push(`- ${status} ${d.agent}: ${text}`);
+			lines.push(`- ${d.agent}: ${text}`);
 		}
 		lines.push("");
 	}
@@ -873,7 +872,7 @@ function processOrchestratorMailbox(
 		} else if (msg.type === "shutdown") {
 			// Orchestrator receiving a shutdown notice (rare — mostly agent→orchestrator)
 			saveState(ctx.cwd, state);
-			parts.push(`Received message from "${msg.from}":\n\n The agent has shut down.`);
+			parts.push(`Received message from "${msg.from}":\n\nThe agent has shut down.`);
 		}
 	}
 
@@ -1315,7 +1314,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 		if (sessionTask) {
 			const state = loadState(ctx.cwd, sessionTask);
 			if (state) {
-				ctx.ui.notify(` Previous team "${sessionTask}" found. Use /team resume ${sessionTask} to resume.`, "info");
+				ctx.ui.notify(`Previous team "${sessionTask}" found. Use /team resume ${sessionTask} to resume.`, "info");
 			}
 		}
 
@@ -1324,12 +1323,11 @@ export default function teamExtension(pi: ExtensionAPI) {
 
 		if (availableTeams.length >= 1) {
 			const lines: string[] = availableTeams.length === 1
-				? [" Team found:"]
-				: [" Multiple teams found:"];
+				? ["Team found:"]
+				: ["Multiple teams found:"];
 			for (const team of availableTeams) {
-				const icon = team.status === "active" ? "" : "";
 				const timeStr = team.lastActivity > 0 ? new Date(team.lastActivity).toLocaleString() : "unknown";
-				lines.push(`  ${icon} ${team.task} — Agents: ${team.agentCount} | Last: ${timeStr}`);
+				lines.push(`  ${team.task} — Agents: ${team.agentCount} | Last: ${timeStr}`);
 			}
 			lines.push("");
 			lines.push("Use /team resume <task-name> to resume a team.");
@@ -1753,23 +1751,23 @@ export default function teamExtension(pi: ExtensionAPI) {
 					// Reports
 					const completedReports = state.dispatchHistory.filter(e => e.result);
 					if (completedReports.length > 0) {
-						lines.push("\n Reports:");
+						lines.push("\nReports:");
 						for (const entry of completedReports) {
-							lines.push(`   ${entry.agent}`);
+							lines.push(`  ${entry.agent}`);
 						}
 					}
 
 					// Mailboxes
 					const mdir = mailboxDir(ctx.cwd, taskName);
 					if (fs.existsSync(mdir)) {
-						lines.push("\n Mailboxes:");
+						lines.push("\nMailboxes:");
 						const mailboxFiles = fs.readdirSync(mdir).filter((f) => f.endsWith(".json"));
 						for (const mf of mailboxFiles) {
 							const mp = path.join(mdir, mf);
 							const messages = readMailbox(mp, ctx);
 							const unread = messages.length;
 							const name = mf.replace(".json", "");
-							lines.push(`  ${unread > 0 ? "" : ""} ${name}: ${unread} message${unread !== 1 ? "s" : ""}`);
+							lines.push(`  ${name}: ${unread} message${unread !== 1 ? "s" : ""}`);
 						}
 					}
 
@@ -1800,12 +1798,11 @@ export default function teamExtension(pi: ExtensionAPI) {
 							return;
 						}
 
-						const lines: string[] = [" Available Teams:\n"];
+						const lines: string[] = ["Available Teams:\n"];
 						for (const team of teams) {
-							const teamStatusIcon = team.status === "active" ? "" : "";
 							const workingTag = team.hasWorkingAgents ? " (has working agents)" : "";
 							const timeStr = team.lastActivity > 0 ? new Date(team.lastActivity).toLocaleString() : "unknown";
-							lines.push(`  ${teamStatusIcon} ${team.task}${workingTag}`);
+							lines.push(`  ${team.task}${workingTag}`);
 							lines.push(`     Agents: ${team.agentCount} | Last activity: ${timeStr}`);
 						}
 
@@ -1896,12 +1893,11 @@ export default function teamExtension(pi: ExtensionAPI) {
 
 					const lines: string[] = ["Available Agents:\n"];
 					for (const agent of discovery.agents) {
-						const source = agent.source === "user" ? "" : "";
 						const model = agent.model ? ` [${agent.model}]` : "";
 						const tools = agent.tools
 							? ` (tools: ${agent.tools.join(", ")})`
 							: "";
-						lines.push(`  ${source} ${agent.name}${model}${tools}`);
+						lines.push(`  ${agent.name}${model}${tools}`);
 						lines.push(`     ${agent.description}`);
 					}
 
@@ -1933,7 +1929,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 						return;
 					}
 
-					const lines: string[] = [` Dispatch History: ${taskName}\n`];
+					const lines: string[] = [`Dispatch History: ${taskName}\n`];
 
 					if (state.dispatchHistory.length === 0) {
 						lines.push("No dispatches yet.");
@@ -1941,8 +1937,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 						for (let i = 0; i < state.dispatchHistory.length; i++) {
 							const entry = state.dispatchHistory[i];
 							const time = new Date(entry.timestamp).toLocaleTimeString();
-							const resultIcon = entry.result ? "" : "";
-							lines.push(`${i + 1}. ${resultIcon} ${entry.agent} — ${time}`);
+							lines.push(`${i + 1}. ${entry.agent} — ${time}`);
 							lines.push(`   Instructions: ${entry.instructions}`);
 							if (entry.result) {
 								lines.push(`   Result: ${entry.result}`);
@@ -2008,8 +2003,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 
 						const summaryLines = ["Teams to delete:"];
 						for (const team of allTeams) {
-							const icon = team.status === "active" ? "" : "";
-							summaryLines.push(`  ${icon} ${team.task} (${team.status})${team.projectLabel}`);
+							summaryLines.push(`  ${team.task} (${team.status})${team.projectLabel}`);
 						}
 
 						const confirmed = await ctx.ui.confirm("Team Cleanup", summaryLines.join("\n"));

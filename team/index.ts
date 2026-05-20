@@ -1908,11 +1908,111 @@ export default function teamExtension(pi: ExtensionAPI) {
 				case "cleanup": {
 					const rawTargetTeam = parts[1];
 
+					// ── Batch cleanup: no team name provided ──────────────────
 					if (!rawTargetTeam) {
-						ctx.ui.notify("Usage: /team cleanup <team-name>", "warning");
+						const projectDirs = await discoverProjectCWDs(ctx.cwd);
+						const allTeams: Array<{
+							task: string;
+							status: string;
+							projectDir: string;
+							projectLabel: string;
+							state: TeamState;
+							isCurrentTeam: boolean;
+						}> = [];
+
+						for (const projectDir of projectDirs) {
+							const workflowRoot = path.join(projectDir, ".pi", "workflow");
+							if (!fs.existsSync(workflowRoot)) continue;
+
+							try {
+								const entries = fs.readdirSync(workflowRoot, { withFileTypes: true });
+								for (const entry of entries) {
+									if (!entry.isDirectory()) continue;
+									const state = loadState(projectDir, entry.name);
+									if (!state) continue;
+
+									const projectLabel = projectDir === ctx.cwd
+										? ""
+										: ` [${path.basename(projectDir)}]`;
+
+									const isCurrentTeam = currentTeamState?.task === entry.name || currentWorkerState?.task === entry.name;
+
+									allTeams.push({
+										task: entry.name,
+										status: state.status ?? "(no state)",
+										projectDir,
+										projectLabel,
+										state,
+										isCurrentTeam,
+									});
+								}
+							} catch {
+								// workflow dir not readable
+							}
+						}
+
+						if (allTeams.length === 0) {
+							ctx.ui.notify("No teams found to clean up.", "info");
+							break;
+						}
+
+						const summaryLines = ["🧹 Teams to delete:"];
+						for (const team of allTeams) {
+							const icon = team.status === "active" ? "🟢" : "🔴";
+							summaryLines.push(`  ${icon} ${team.task} (${team.status})${team.projectLabel}`);
+						}
+
+						const confirmed = await ctx.ui.confirm("Team Cleanup", summaryLines.join("\n"));
+						if (!confirmed) {
+							ctx.ui.notify("Cleanup cancelled.", "info");
+							break;
+						}
+
+						const cleaned: string[] = [];
+						for (const team of allTeams) {
+							const teamDir = path.join(team.projectDir, ".pi", "workflow", team.task);
+
+							try {
+								// If cleaning up the currently active team, tear down watchers and surfaces first.
+								// For old teams, DO NOT close surfaces from stale state.json — cmux
+								// may have reused those surface IDs, and closing them could kill an
+								// unrelated tab (including the orchestrator's own session).
+								if (team.isCurrentTeam) {
+									clearMailboxWatchers();
+									currentTeamState = null;
+									currentWorkerState = null;
+									orchestratorWaitingFor = null;
+									activeDispatches.clear();
+
+									// Only close surfaces for the ACTIVE team (where IDs are current).
+									// Verify each surface still exists before closing.
+									try {
+										const content = fs.readFileSync(path.join(teamDir, "state.json"), "utf-8");
+										const stateJson = JSON.parse(content);
+										for (const surfaceId of Object.values(stateJson.surfaceIds ?? {})) {
+											if (typeof surfaceId === "string" && await cmuxSurfaceExists(surfaceId)) {
+												await cmuxCloseSurface(surfaceId).catch(() => {});
+											}
+										}
+									} catch { /* best effort */ }
+								}
+
+								await fs.promises.rm(teamDir, { recursive: true, force: true });
+								ctx.ui.notify(`🧹 Cleaned up team "${team.task}"${team.projectLabel}`, "info");
+								cleaned.push(team.task);
+							} catch (e: any) {
+								safeLog("error", `team: failed to clean up team "${team.task}": ${e}`);
+								ctx.ui.notify(`Failed to clean up team "${team.task}": ${e.message}`, "error");
+							}
+						}
+
+						if (cleaned.length > 0) {
+							await cmuxLog("info", `Cleaned up ${cleaned.length} team(s): ${cleaned.join(", ")}`);
+						}
 						break;
 					}
 
+					// ── Single-team cleanup ───────────────────────────────────
 					let targetTeam: string;
 					try {
 						targetTeam = validateTaskName(rawTargetTeam);
@@ -1921,7 +2021,6 @@ export default function teamExtension(pi: ExtensionAPI) {
 						return;
 					}
 
-					// Clean up a specific team by name, regardless of status
 					const projectDirs = await discoverProjectCWDs(ctx.cwd);
 					let found = false;
 
@@ -1946,10 +2045,6 @@ export default function teamExtension(pi: ExtensionAPI) {
 							break;
 						}
 
-						// If cleaning up the currently active team, tear down watchers and surfaces first.
-						// For old teams, DO NOT close surfaces from stale state.json — cmux
-						// may have reused those surface IDs, and closing them could kill an
-						// unrelated tab (including the orchestrator's own session).
 						const isCurrentTeam = currentTeamState?.task === targetTeam || currentWorkerState?.task === targetTeam;
 						if (isCurrentTeam) {
 							clearMailboxWatchers();
@@ -1958,8 +2053,6 @@ export default function teamExtension(pi: ExtensionAPI) {
 							orchestratorWaitingFor = null;
 							activeDispatches.clear();
 
-							// Only close surfaces for the ACTIVE team (where IDs are current).
-							// Verify each surface still exists before closing.
 							try {
 								const content = fs.readFileSync(path.join(teamDir, "state.json"), "utf-8");
 								const state = JSON.parse(content);
@@ -1989,7 +2082,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 							"  /team init <team-name> [<agent>...]\n" +
 							"  /team status [team-name]\n" +
 							"  /team resume [task-name]\n" +
-							"  /team cleanup <team-name>\n" +
+							"  /team cleanup [team-name]\n" +
 							"  /team list\n" +
 							"  /team history [team-name]",
 						"info",

@@ -185,6 +185,18 @@ function sessionFileHasData(sessionFile: string): boolean {
 	}
 }
 
+function sessionFileHasTeamEntry(sessionFile: string, taskName: string): boolean {
+	try {
+		const sm = SessionManager.open(sessionFile);
+		const entries = sm.getEntries();
+		return entries.some(
+			(e: any) => e.type === "custom" && e.customType === "team-orchestrator" && e.data?.task === taskName,
+		);
+	} catch {
+		return false;
+	}
+}
+
 // ─── State persistence ───────────────────────────────────────────────────────
 
 function saveState(cwd: string, state: TeamState): void {
@@ -229,6 +241,26 @@ function loadState(cwd: string, task: string): TeamState | null {
 		}
 		return null;
 	}
+}
+
+function findPendingResumeTask(cwd: string): string | null {
+	try {
+		const workflowRoot = path.join(cwd, ".pi", "workflow");
+		if (!fs.existsSync(workflowRoot)) return null;
+		const entries = fs.readdirSync(workflowRoot, { withFileTypes: true });
+		for (const entry of entries) {
+			if (!entry.isDirectory()) continue;
+			const state = loadState(cwd, entry.name);
+			if (!state?.pendingTeamResume) continue;
+			const elapsed = Date.now() - state.pendingTeamResume;
+			if (elapsed <= CONFIG.PENDING_RESUME_EXPIRY_MS) {
+				return state.task;
+			}
+		}
+	} catch {
+		// best effort
+	}
+	return null;
 }
 
 function saveSessionState(pi: ExtensionAPI, state: TeamState): void {
@@ -374,6 +406,24 @@ async function cmuxGetPaneId(): Promise<string | null> {
 	}
 }
 
+async function cmuxGetSurfaceId(): Promise<string | null> {
+	try {
+		const { stdout } = await cmuxExec("identify");
+		const data = JSON.parse(stdout) as { caller?: { surface_ref?: string } };
+		return data.caller?.surface_ref ?? null;
+	} catch {
+		return null;
+	}
+}
+
+async function cmuxFocusSurface(surfaceId: string): Promise<void> {
+	try {
+		await cmuxExec("rpc", "surface.focus", JSON.stringify({ surface_id: surfaceId }));
+	} catch {
+		// Best effort — surface may already be gone
+	}
+}
+
 async function cmuxSendToSurface(surfaceId: string, text: string): Promise<void> {
 	try {
 		await cmuxExec("send", "--surface", surfaceId, text);
@@ -387,16 +437,6 @@ async function cmuxCloseSurface(surfaceId: string): Promise<void> {
 		await cmuxExec("close-surface", "--surface", surfaceId);
 	} catch {
 		// Surface may already be gone — silently ignore
-	}
-}
-
-async function cmuxRenameTab(surfaceId: string | undefined, title: string): Promise<void> {
-	try {
-		const sid = surfaceId ?? process.env.CMUX_SURFACE_ID;
-		if (!sid) return;
-		await cmuxExec("rename-tab", "--surface", sid, title);
-	} catch (e) {
-		safeLog("debug", `team: cmuxRenameTab failed: ${e}`);
 	}
 }
 
@@ -527,6 +567,11 @@ async function resumeTeam(pi: ExtensionAPI, ctx: ExtensionContext, taskName: str
 		}
 	}
 	state.surfaceIds = {};
+	// Re-focus orchestrator after closing orphans so focus doesn't drift.
+	const orchSurfaceId = await cmuxGetSurfaceId();
+	if (orchSurfaceId) {
+		await cmuxFocusSurface(orchSurfaceId);
+	}
 
 	// 4. Clear orchestratorPaneId (stale after session end)
 	state.orchestratorPaneId = null;
@@ -619,7 +664,6 @@ async function resumeTeam(pi: ExtensionAPI, ctx: ExtensionContext, taskName: str
 	// Set session name and update widget
 	const orchLabel = `🔷 orchestrator: ${taskName}`;
 	pi.setSessionName(orchLabel);
-	await cmuxRenameTab(undefined, orchLabel);
 
 	ensureResearchTools(pi);
 
@@ -763,9 +807,7 @@ async function spawnAgent(
 			const command = `${envPrefix} pi ${args.join(" ")}\n`;
 			await cmuxSendToSurface(surfaceId, command);
 
-			// Rename tab
-			const tabTitle = `⚪ ${agent.name}: ${task}`;
-			await cmuxRenameTab(surfaceId, tabTitle);
+			// Tab title left to cmux defaults or user preference
 		} else {
 			// No cmux — print manual command
 			const command = `${envPrefix} pi ${args.join(" ")}`;
@@ -1168,7 +1210,13 @@ export default function teamExtension(pi: ExtensionAPI) {
 
 	pi.on("session_start", async (_event, ctx) => {
 		// Check for pending team resume (set by /team resume before switchSession)
-		const resumeTask = loadSessionTask(ctx);
+		let resumeTask = loadSessionTask(ctx);
+		// Fallback: if the session doesn't have the team-orchestrator entry (e.g.
+		// because the custom entry wasn't flushed to disk before a prior crash),
+		// scan workflow states for a pendingTeamResume flag.
+		if (!resumeTask) {
+			resumeTask = findPendingResumeTask(ctx.cwd);
+		}
 		if (resumeTask) {
 			const state = loadState(ctx.cwd, resumeTask);
 			const PENDING_RESUME_EXPIRY_MS = CONFIG.PENDING_RESUME_EXPIRY_MS; // 5 minutes
@@ -1428,9 +1476,13 @@ export default function teamExtension(pi: ExtensionAPI) {
 			for (const surfaceId of Object.values(state.surfaceIds ?? {})) {
 				await cmuxCloseSurface(surfaceId);
 			}
+			// Re-focus orchestrator after teardown so focus doesn't drift.
+			const orchSurfaceId = await cmuxGetSurfaceId();
+			if (orchSurfaceId) {
+				await cmuxFocusSurface(orchSurfaceId);
+			}
 
-			// Reset tab title so cmux auto-names on next startup
-			await cmuxRenameTab(undefined, "");
+			// cmux tab titles are left as-is on shutdown
 
 			// Persist shutdown status so future resumes know this team was cleanly ended
 			state.status = "shutdown";
@@ -1647,7 +1699,6 @@ export default function teamExtension(pi: ExtensionAPI) {
 					// Name the session
 					const orchLabel = `🔷 orchestrator: ${taskName}`;
 					pi.setSessionName(orchLabel);
-					await cmuxRenameTab(undefined, orchLabel);
 
 					// Save orchestrator session file for resume
 					if (ctx.sessionManager?.getSessionFile) {
@@ -1773,19 +1824,15 @@ export default function teamExtension(pi: ExtensionAPI) {
 					activeDispatches.clear();
 
 					let orchSessionFile = loadAgentSessionMeta(ctx.cwd, taskName, "orchestrator");
+					// Validate meta points to a session that actually contains our team entry
+					if (orchSessionFile && !sessionFileHasTeamEntry(orchSessionFile, taskName)) {
+						orchSessionFile = null;
+					}
 					if (!orchSessionFile) {
 						const state = loadState(ctx.cwd, taskName);
 						if (state?.orchestratorSessionFile && fs.existsSync(state.orchestratorSessionFile)) {
 							orchSessionFile = state.orchestratorSessionFile;
-							// Validate: the file must contain a team-orchestrator entry for this task
-							try {
-								const sm = SessionManager.open(orchSessionFile);
-								const entries = sm.getEntries();
-								const hasEntry = entries.some((e: any) => e.type === "custom" && e.customType === "team-orchestrator" && e.data?.task === taskName);
-								if (!hasEntry) {
-									orchSessionFile = null;
-								}
-							} catch {
+							if (!sessionFileHasTeamEntry(orchSessionFile, taskName)) {
 								orchSessionFile = null;
 							}
 						}
@@ -2000,6 +2047,12 @@ export default function teamExtension(pi: ExtensionAPI) {
 											}
 										}
 									} catch { /* best effort */ }
+
+									// Bring focus back to orchestrator after closing workers
+									const orchSurfaceId = await cmuxGetSurfaceId();
+									if (orchSurfaceId) {
+										await cmuxFocusSurface(orchSurfaceId);
+									}
 								}
 
 								await fs.promises.rm(teamDir, { recursive: true, force: true });
@@ -2067,6 +2120,12 @@ export default function teamExtension(pi: ExtensionAPI) {
 									}
 								}
 							} catch { /* best effort */ }
+
+							// Bring focus back to orchestrator after closing workers
+							const orchSurfaceId = await cmuxGetSurfaceId();
+							if (orchSurfaceId) {
+								await cmuxFocusSurface(orchSurfaceId);
+							}
 						}
 
 						await fs.promises.rm(teamDir, { recursive: true, force: true });

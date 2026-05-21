@@ -105,8 +105,6 @@ function loadState(cwd, task) {
 	}
 }
 
-const MAX_CONTEXT_DISPATCHES = 20;
-
 function buildOrchestratorContext(state, extraInfo) {
 	const lines = [];
 
@@ -129,18 +127,6 @@ function buildOrchestratorContext(state, extraInfo) {
 		lines.push(`  ${agent.name}${rolesLabel} — ${agent.description}`);
 	}
 	lines.push("");
-
-	const done = state.dispatchHistory
-		.slice(-MAX_CONTEXT_DISPATCHES)
-		.filter((d) => d.result && d.result !== "[Session interrupted]" && d.result !== "[Team completed]");
-
-	if (done.length > 0) {
-		lines.push("**Done:**");
-		for (const d of done) {
-			lines.push(`- ${d.agent}: ${d.result.substring(0, 200)}${d.result.length > 200 ? "..." : ""}`);
-		}
-		lines.push("");
-	}
 
 	if (extraInfo) {
 		lines.push(extraInfo);
@@ -349,11 +335,6 @@ describe("buildOrchestratorContext", () => {
 		};
 	}
 
-	it("contains header with task name", () => {
-		const ctx = buildOrchestratorContext(makeState());
-		assert.ok(ctx.includes("test-task"));
-	});
-
 	it("contains 'orchestrator' in role section", () => {
 		const ctx = buildOrchestratorContext(makeState());
 		assert.ok(ctx.includes("You are the **orchestrator**"));
@@ -371,48 +352,9 @@ describe("buildOrchestratorContext", () => {
 		assert.ok(ctx.includes("[review]"));
 	});
 
-	it("shows completed work from dispatches", () => {
-		const state = makeState([
-			{ agent: "worker", instructions: "do work", timestamp: 1, result: "done" },
-		]);
-		const ctx = buildOrchestratorContext(state);
-		assert.ok(ctx.includes("**Done:**"));
-		assert.ok(ctx.includes("- worker: done"));
-	});
-
-	it("truncates long results to 200 chars", () => {
-		const longResult = "a".repeat(250);
-		const state = makeState([
-			{ agent: "worker", instructions: "do work", timestamp: 1, result: longResult },
-		]);
-		const ctx = buildOrchestratorContext(state);
-		assert.ok(ctx.includes("a".repeat(200) + "..."));
-		assert.ok(!ctx.includes("a".repeat(201)));
-	});
-
-	it("limits to MAX_CONTEXT_DISPATCHES (20)", () => {
-		const dispatches = [];
-		for (let i = 0; i < 25; i++) {
-			dispatches.push({ agent: "worker", instructions: `task${i}`, timestamp: i, result: `result${i}` });
-		}
-		const state = makeState(dispatches);
-		const ctx = buildOrchestratorContext(state);
-
-		// Only last 20 results should appear
-		assert.ok(ctx.includes("result24"));
-		assert.ok(ctx.includes("result5"));
-		assert.ok(!ctx.includes("result4"));
-	});
-
 	it("shows extraInfo when provided", () => {
 		const ctx = buildOrchestratorContext(makeState(), "Extra context here");
 		assert.ok(ctx.includes("Extra context here"));
-	});
-
-	it("does not show 'Done' section when no completed work", () => {
-		const ctx = buildOrchestratorContext(makeState());
-		assert.ok(!ctx.includes("**Done:**"));
-		assert.ok(!ctx.includes("No completed work yet"));
 	});
 });
 

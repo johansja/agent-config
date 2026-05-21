@@ -57,7 +57,6 @@ const CONFIG = {
 	SPAWN_DELAY_MS: 500,
 	PENDING_RESUME_EXPIRY_MS: 5 * 60 * 1000,
 	CMUX_TIMEOUT_MS: 10000,
-	MAX_CONTEXT_DISPATCHES: 20,
 	TASK_NAME_MAX_LENGTH: 64,
 } as const;
 
@@ -292,6 +291,17 @@ function loadWorkerState(ctx: ExtensionContext): WorkerState | null {
 		.filter((e: { type: string; customType?: string }) => e.type === "custom" && e.customType === "team-worker")
 		.pop() as { data?: WorkerState } | undefined;
 	return entry?.data ?? null;
+}
+
+function loadWorkerDispatchId(ctx: ExtensionContext): string | null {
+	const entries = ctx.sessionManager.getEntries();
+	for (let i = entries.length - 1; i >= 0; i--) {
+		const e = entries[i] as { type: string; customType?: string; data?: { dispatchId?: string } };
+		if (e.type === "custom" && e.customType === "team-worker-dispatch" && e.data?.dispatchId) {
+			return e.data.dispatchId;
+		}
+	}
+	return null;
 }
 
 // ─── Mailbox helpers ─────────────────────────────────────────────────────────
@@ -683,13 +693,10 @@ function buildOrchestratorContext(state: TeamState): string {
 		? agentNames.join(" and ")
 		: agentNames.slice(0, -1).join(", ") + " and " + agentNames.at(-1);
 
-	lines.push(`${state.task}`);
-	lines.push("");
-
 	lines.push(`You are the team lead managing ${namesText}.`);
 	lines.push("- Use `team_orchestrate` to dispatch. Give goals and constraints, not step-by-step instructions.");
 	lines.push("- While an agent is working, stay active — chat with the user, plan the next move, or prepare materials.");
-	lines.push("- If an agent needs course correction, send a follow-up (redispatch the same agent).");
+	lines.push("- If an agent needs course correction, send a steer (redispatch the same agent).");
 	lines.push("- Only dispatch one agent at a time. Wait for their result before dispatching a different agent.");
 	lines.push("- Typical flow for implementation tasks: dispatch implementor → review deliverable → dispatch reviewer for quality check → if critical issues found, send implementor back to fix → repeat as needed.");
 	lines.push("- When an agent finishes, briefly note what they delivered, then decide what's next.");
@@ -705,23 +712,6 @@ function buildOrchestratorContext(state: TeamState): string {
 	lines.push("");
 	lines.push("You may ONLY dispatch agents listed above. Do not invent or reference any other agent names.");
 	lines.push("");
-
-	const done = state.dispatchHistory
-		.slice(-CONFIG.MAX_CONTEXT_DISPATCHES)
-		.filter((d) => d.result && d.result !== "[Team completed]");
-
-	if (done.length > 0) {
-		lines.push("**Done:**");
-		for (const d of done) {
-			const isInterrupted = d.result === "[Session interrupted]";
-			const text = isInterrupted
-				? "[interrupted — re-dispatch if still needed]"
-				: `${d.result.substring(0, 200)}${d.result.length > 200 ? "..." : ""}`;
-			lines.push(`- ${d.agent}: ${text}`);
-		}
-		lines.push("");
-	}
-
 
 	lines.push("Use `team_orchestrate` to dispatch an agent.");
 
@@ -895,6 +885,9 @@ function processWorkerMailbox(
 		if (msg.type === "dispatch") {
 			if (msg.dispatchId) {
 				activeDispatches.set(`${task}/${role}`, msg.dispatchId);
+				// Persist dispatchId in session entries so agent_end can reliably
+				// look it up even if activeDispatches has raced with a new message.
+				pi.appendEntry("team-worker-dispatch", { dispatchId: msg.dispatchId });
 			}
 			const dispatchText = msg.instructions ?? msg.body ?? "New task from orchestrator";
 			pi.sendUserMessage(`Received message from "orchestrator":\n\n${dispatchText}`, { deliverAs: "steer" });
@@ -1363,7 +1356,10 @@ export default function teamExtension(pi: ExtensionAPI) {
 		const state = loadState(ctx.cwd, task);
 		if (!state) return;
 
-		const dispatchId = activeDispatches.get(`${task}/${role}`);
+		// Use the dispatchId saved in session entries when the steer was delivered.
+		// This is more reliable than the activeDispatches Map, which can race with
+		// new mailbox messages arriving while the agent is finishing.
+		const dispatchId = loadWorkerDispatchId(ctx) ?? activeDispatches.get(`${task}/${role}`);
 
 		// Only report if there's an active dispatch. If user typed in the surface
 		// without a pending dispatch, skip reporting to avoid noise.
@@ -1372,13 +1368,12 @@ export default function teamExtension(pi: ExtensionAPI) {
 			return;
 		}
 
-		// Update dispatch history by dispatchId
+		// Update dispatch history by dispatchId. Always overwrite — a late result
+		// for an abandoned dispatch should replace the synthetic placeholder.
 		for (let i = state.dispatchHistory.length - 1; i >= 0; i--) {
 			if (state.dispatchHistory[i].dispatchId === dispatchId) {
-				if (!state.dispatchHistory[i].result) {
-					state.dispatchHistory[i].result = result;
-					state.dispatchHistory[i].stopReason = stopReason;
-				}
+				state.dispatchHistory[i].result = result;
+				state.dispatchHistory[i].stopReason = stopReason;
 				break;
 			}
 		}
@@ -1386,7 +1381,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 		// Agent session ended
 		saveState(ctx.cwd, state);
 
-		// Write result to orchestrator mailbox (terminal completions only)
+		// Write result to orchestrator mailbox
 		const orchestratorMailbox = mailboxPath(ctx.cwd, task, "orchestrator");
 		appendToMailbox(orchestratorMailbox, {
 			type: "message",
@@ -1394,6 +1389,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 			to: "orchestrator",
 			body: JSON.stringify({ type: "report", result, stopReason, dispatchId }),
 			timestamp: Date.now(),
+			dispatchId,
 		});
 
 		// Notify
@@ -1404,7 +1400,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 			// cmux not available
 		}
 
-		// Clean up module-level state — only for terminal completions
+		// Clean up module-level state
 		if (currentWorkerState?.task === task && currentWorkerState?.role === role) {
 			currentWorkerState = null;
 		}

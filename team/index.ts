@@ -1024,13 +1024,13 @@ export default function teamExtension(pi: ExtensionAPI) {
 		pi.registerTool({
 			name: "team_orchestrate",
 		label: "Orchestrate Team",
-		description: "Dispatch an agent with a task. The agent runs in the background. Their result will be delivered to you automatically when they finish.",
+		description: "Dispatch an agent with a task. The agent works in a background session. You must wait for their results before proceeding.",
 		promptSnippet: "Dispatch an agent with instructions",
 		promptGuidelines: [
 			"Use team_orchestrate when you need to assign work to a team agent.",
 			"Give a clear goal and any critical constraints — not step-by-step instructions. Trust the agent to explore and find the best approach.",
 			"Only include context the agent can't figure out by reading the codebase (cross-module dependencies, undocumented intent, things that look like valid changes but aren't).",
-			"After dispatching, the agent runs in the background. Their result will be delivered to you automatically. If the agent is going off-track or you have new critical context, you MAY redispatch the SAME agent with updated instructions — this sends a steer message to correct their course.",
+			"After dispatching, the agent is actively working. Wait for their results — do not proceed or dispatch another agent until they arrive. If the agent is going off-track, you MAY redispatch the SAME agent with updated instructions — this sends a steer to correct their course.",
 		],
 		parameters: Type.Object({
 			action: StringEnum(["dispatch"] as const, {

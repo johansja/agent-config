@@ -1160,9 +1160,9 @@ export default function teamExtension(pi: ExtensionAPI) {
 				return {
 					content: [{
 						type: "text",
-						text: `Dispatched "${params.agent}" with instructions.\n\nThe agent is now running in the background. Their result will be delivered to you automatically when they finish. Do not dispatch them again for the same task.`,
+						text: `Dispatched to "${params.agent}". Their task is in progress — do not proceed until their results arrive.`,
 					}],
-					details: { dispatchedTo: params.agent },
+					details: { dispatchedTo: params.agent, status: "in-progress" },
 				};
 			}
 

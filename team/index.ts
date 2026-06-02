@@ -28,7 +28,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { isToolCallEventType, SessionManager, type ExtensionAPI, type ExtensionCommandContext, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import { discoverAgents, type AgentConfig } from "./agents.js";
 import { Text } from "@earendil-works/pi-tui";
 
@@ -1342,13 +1342,15 @@ export default function teamExtension(pi: ExtensionAPI) {
 		const stopReason = lastAssistant?.stopReason ?? "unknown";
 
 		// Pi handles non-terminal states internally:
-		// - "error" with context overflow → compact + retry (may fail silently in core)
-		// - "error" with transient API errors → auto-retry
+		// - "error" with willRetry → wait for the retry to complete
+		// - "error" without willRetry → terminal failure, report it
 		// - "aborted" → user cancelled, not a completion
-		// Do NOT report these to the orchestrator; wait for the terminal agent_end.
-		if (stopReason === "error" || stopReason === "aborted") {
+		if (stopReason === "error" && event.willRetry === true) {
 			// Keep state alive so the terminal agent_end can still report when pi
 			// finishes its internal recovery.
+			return;
+		}
+		if (stopReason === "aborted") {
 			return;
 		}
 
@@ -1443,7 +1445,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 
 	// ─── Session shutdown: cleanup resources ────────────────────────────────
 
-	pi.on("session_shutdown", async (_event, ctx) => {
+	pi.on("session_shutdown", async (event, ctx) => {
 		// Close all active file watchers and intervals
 		clearMailboxWatchers();
 
@@ -1477,8 +1479,10 @@ export default function teamExtension(pi: ExtensionAPI) {
 
 			// cmux tab titles are left as-is on shutdown
 
-			// Persist shutdown status so future resumes know this team was cleanly ended
-			state.status = "shutdown";
+			// Only mark as shutdown on explicit quit; reloads/forks/resumes should not
+			if (event.reason === "quit") {
+				state.status = "shutdown";
+			}
 			state.surfaceIds = {};
 			try {
 				saveState(ctx.cwd, state);

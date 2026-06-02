@@ -105,21 +105,24 @@ function loadState(cwd, task) {
 	}
 }
 
-function buildOrchestratorContext(state, extraInfo) {
+function buildOrchestratorContext(state) {
 	const lines = [];
 
-	lines.push(`${state.task}`);
-	lines.push("");
+	const agentNames = state.agents.map(a => a.name);
+	const namesText = agentNames.length <= 2
+		? agentNames.join(" and ")
+		: agentNames.slice(0, -1).join(", ") + " and " + agentNames.at(-1);
 
-	lines.push("You are the **orchestrator**. Research and plan, then delegate.");
+	lines.push(`You are the team lead managing ${namesText}.`);
 	lines.push("- Use `team_orchestrate` to dispatch. Give goals and constraints, not step-by-step instructions.");
-	lines.push("- You may explore the codebase by reading files, grepping, etc.");
-	lines.push("- You must NOT make code changes, write files, or run tests / build commands yourself — that's the team's job.");
-	lines.push("- Do NOT dispatch a different agent until the current one reports back.");
-	lines.push("- When an agent finishes, briefly note the result, then dispatch the next step.");
+	lines.push("- While an agent is working, stay active — chat with the user, plan the next move, or prepare materials.");
+	lines.push("- If an agent needs course correction, send a steer (redispatch the same agent).");
+	lines.push("- Only dispatch one agent at a time. Wait for their result before dispatching a different agent.");
+	lines.push("- Typical flow for implementation tasks: dispatch implementor → review deliverable → dispatch reviewer for quality check → if critical issues found, send implementor back to fix → repeat as needed.");
+	lines.push("- When an agent finishes, briefly note what they delivered, then decide what's next.");
 	lines.push("");
 
-	lines.push("**Agents:**");
+	lines.push(`**Agents (${state.agents.length} total — you may ONLY dispatch these):**`);
 	for (const agent of state.agents) {
 		const rolesLabel = agent.roles && agent.roles.length > 0
 			? ` [${agent.roles.join(", ")}]`
@@ -127,11 +130,8 @@ function buildOrchestratorContext(state, extraInfo) {
 		lines.push(`  ${agent.name}${rolesLabel} — ${agent.description}`);
 	}
 	lines.push("");
-
-	if (extraInfo) {
-		lines.push(extraInfo);
-		lines.push("");
-	}
+	lines.push("You may ONLY dispatch agents listed above. Do not invent or reference any other agent names.");
+	lines.push("");
 
 	lines.push("Use `team_orchestrate` to dispatch an agent.");
 
@@ -323,38 +323,71 @@ describe("saveState / loadState round-trip", () => {
 });
 
 describe("buildOrchestratorContext", () => {
-	function makeState(dispatches = []) {
+	function makeState(agents = []) {
 		return {
 			task: "test-task",
-			agents: [
-				{ name: "worker", description: "Does things", roles: ["implementation"] },
-				{ name: "reviewer", description: "Reviews things", roles: ["review"] },
-			],
-			dispatchHistory: dispatches,
+			agents,
+			dispatchHistory: [],
 			status: "active",
 		};
 	}
 
-	it("contains 'orchestrator' in role section", () => {
-		const ctx = buildOrchestratorContext(makeState());
-		assert.ok(ctx.includes("You are the **orchestrator**"));
+	it("contains team lead intro with agent names", () => {
+		const ctx = buildOrchestratorContext(makeState([
+			{ name: "worker", description: "Does things", roles: ["implementation"] },
+			{ name: "reviewer", description: "Reviews things", roles: ["review"] },
+		]));
+		assert.ok(ctx.includes("You are the team lead managing worker and reviewer."));
 	});
 
-	it("contains agent roster", () => {
-		const ctx = buildOrchestratorContext(makeState());
+	it("formats three agents with oxford-style 'and'", () => {
+		const ctx = buildOrchestratorContext(makeState([
+			{ name: "alice", description: "A", roles: [] },
+			{ name: "bob", description: "B", roles: [] },
+			{ name: "carol", description: "C", roles: [] },
+		]));
+		assert.ok(ctx.includes("alice, bob and carol"));
+	});
+
+	it("contains agent roster with descriptions", () => {
+		const ctx = buildOrchestratorContext(makeState([
+			{ name: "worker", description: "Does things", roles: ["implementation"] },
+			{ name: "reviewer", description: "Reviews things", roles: ["review"] },
+		]));
 		assert.ok(ctx.includes("worker"));
 		assert.ok(ctx.includes("reviewer"));
+		assert.ok(ctx.includes("Does things"));
+		assert.ok(ctx.includes("Reviews things"));
 	});
 
 	it("includes role labels in roster", () => {
-		const ctx = buildOrchestratorContext(makeState());
+		const ctx = buildOrchestratorContext(makeState([
+			{ name: "worker", description: "Does things", roles: ["implementation"] },
+			{ name: "reviewer", description: "Reviews things", roles: ["review"] },
+		]));
 		assert.ok(ctx.includes("[implementation]"));
 		assert.ok(ctx.includes("[review]"));
 	});
 
-	it("shows extraInfo when provided", () => {
-		const ctx = buildOrchestratorContext(makeState(), "Extra context here");
-		assert.ok(ctx.includes("Extra context here"));
+	it("omits roles label when no roles", () => {
+		const ctx = buildOrchestratorContext(makeState([
+			{ name: "plain", description: "Plain agent", roles: [] },
+		]));
+		assert.ok(ctx.includes("plain — Plain agent"));
+	});
+
+	it("warns to only dispatch listed agents", () => {
+		const ctx = buildOrchestratorContext(makeState([
+			{ name: "worker", description: "Does things", roles: [] },
+		]));
+		assert.ok(ctx.includes("You may ONLY dispatch agents listed above."));
+	});
+
+	it("mentions team_orchestrate dispatch instruction", () => {
+		const ctx = buildOrchestratorContext(makeState([
+			{ name: "worker", description: "Does things", roles: [] },
+		]));
+		assert.ok(ctx.includes("Use `team_orchestrate` to dispatch an agent."));
 	});
 });
 

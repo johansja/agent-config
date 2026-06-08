@@ -27,7 +27,7 @@ import * as path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { isToolCallEventType, SessionManager, type ExtensionAPI, type ExtensionCommandContext, type ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { StringEnum } from "@earendil-works/pi-ai";
+import { isContextOverflow, StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { discoverAgents, type AgentConfig } from "./agents.js";
 import { Text } from "@earendil-works/pi-tui";
@@ -364,13 +364,6 @@ function extractAgentResult(messages: any[]): string {
 		}
 	}
 	return texts.join("\n") || "[Empty assistant message]";
-}
-
-/** Match context-overflow errors pi handles via auto-compaction (e.g. 400 context length exceeded). */
-function isContextOverflowError(message: any): boolean {
-	if (message.stopReason !== "error" || !message.errorMessage) return false;
-	const err = message.errorMessage;
-	return /maximum context length|exceeds the context window|exceeds.*maximum context length|prompt is too long|maximum prompt length|reduce the length of the messages|input token count.*exceeds|context window exceeds limit|token limit exceeded|context length exceeded|too many tokens/i.test(err);
 }
 
 // ─── cmux CLI helpers ────────────────────────────────────────────────────────
@@ -1299,7 +1292,7 @@ export default function teamExtension(pi: ExtensionAPI) {
 
 		// Context overflow errors are handled by pi via auto-compaction + retry.
 		// Don't report a transient intermediate error to the orchestrator.
-		if (isContextOverflowError(lastAssistant)) {
+		if (lastAssistant && isContextOverflow(lastAssistant)) {
 			return;
 		}
 

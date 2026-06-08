@@ -1,8 +1,8 @@
 /**
  * AI Permission Gate Extension
  *
- * Uses the pi-ai completeSimple() API to classify bash commands by risk level
- * and require user confirmation before executing potentially harmful ones.
+ * Uses the pi-ai completeSimple() API to classify bash commands and MCP tool calls
+ * by risk level and require user confirmation before executing potentially harmful ones.
  *
  * Instead of maintaining a long list of regex patterns, this extension
  * asks a fast, cheap model to judge each command. The LLM returns a
@@ -69,6 +69,14 @@ Risk levels:
 - low: Minor side effects that are easily reversible or low-impact, including CWD-scoped deletions and modifications (rm -rf ./build, rm -rf ./dist, rm ./temp.log, git add, git commit, npm install, pip install, mkdir ./dir, touch ./file, cp ./a ./b, mv ./a ./b, git checkout, git switch, git stash, kubectl get, kubectl describe, helm list, helm status)
 - medium: Significant changes that could affect the system or data, including operations affecting paths outside CWD but not system-critical (rm -rf ../other-project, git push, kubectl apply, helm install, helm upgrade, npm publish, ALTER TABLE with WHERE, DELETE with WHERE, UPDATE with WHERE, docker rm, docker rmi, pip uninstall)
 - high: Destructive, irreversible, or security-sensitive operations, including system-wide or irreversible operations, or operations outside CWD that affect system state (rm -rf /etc, sudo, DROP TABLE, TRUNCATE, DELETE without WHERE, UPDATE without WHERE, git push --force, kubectl delete, shutdown, reboot, mkfs, dd, iptables, chmod 777)
+
+MCP tool call context:
+- You may also be asked to analyze MCP (Model Context Protocol) tool calls
+- MCP read/search/list/describe operations (e.g. web_search, web_fetch, search, list, get, describe) are generally safe or low risk
+- MCP write/modify/create/send operations (e.g. create_issue, update, delete, send_notification, publish, apply) are at least medium risk
+- MCP operations affecting production infrastructure or external systems (e.g. deploy, release, provision) are at least medium risk
+- Destructive MCP operations (delete, remove, drop, terminate, purge, uninstall) are high risk
+- Consider the target server: a notification server sending alerts is lower risk than a database server dropping tables
 
 Working directory context:
 - You will be given the current working directory (CWD)
@@ -290,7 +298,7 @@ async function resolveModel(modelSpec: string | undefined): Promise<Model<Api> |
 }
 
 /**
- * Classify a shell command using the pi-ai completeSimple() API.
+ * Classify a tool operation using the pi-ai completeSimple() API.
  * Sends a single-shot LLM request with the safety classifier system prompt
  * and returns the parsed verdict.
  */
@@ -313,7 +321,7 @@ async function classifyCommand(
 		messages: [
 			{
 				role: "user",
-				content: `Analyze this shell command for safety: ${command}\n\nCurrent working directory: \`${cwd}\``,
+				content: `Analyze this operation for safety: ${command}\n\nCurrent working directory: \`${cwd}\``,
 				timestamp: Date.now(),
 			},
 		],
@@ -389,12 +397,26 @@ function notify(title: string, body: string): void {
 
 export default function (pi: ExtensionAPI) {
 	pi.on("tool_call", async (event, ctx) => {
-		if (event.toolName !== "bash") return undefined;
-
-		const command = event.input.command as string;
-
-		// Skip empty commands
-		if (!command?.trim()) return undefined;
+		let command: string;
+		if (event.toolName === "bash") {
+			command = event.input.command as string;
+			if (!command?.trim()) return undefined;
+		} else if (event.toolName === "mcp") {
+			const server = event.input.server as string;
+			const tool = event.input.tool as string;
+			const args = event.input.args as Record<string, unknown> | string | undefined;
+			let argsStr: string;
+			if (typeof args === "string") {
+				argsStr = args;
+			} else if (args && Object.keys(args).length > 0) {
+				argsStr = JSON.stringify(args);
+			} else {
+				argsStr = "{}";
+			}
+			command = `MCP tool call: server="${server}", tool="${tool}", args=${argsStr}`;
+		} else {
+			return undefined;
+		}
 
 		// Load settings from environment variables
 		const modelSpec = process.env.PI_AI_PERM_GATE_MODEL
@@ -454,11 +476,11 @@ export default function (pi: ExtensionAPI) {
 			if (fallback === "block") {
 				logCommandDecision(command, "unknown", blockLevel, "blocked", "Fallback block after LLM failure");
 				if (!ctx.hasUI) {
-					return { block: true, reason: "Command blocked: AI safety check failed" };
+					return { block: true, reason: "Operation blocked: AI safety check failed" };
 				}
 				return {
 					block: true,
-					reason: "Command blocked: AI safety check failed and fallback is set to block",
+					reason: "Operation blocked: AI safety check failed and fallback is set to block",
 				};
 			}
 			// fallback === "confirm" - ask the user
@@ -468,7 +490,7 @@ export default function (pi: ExtensionAPI) {
 			}
 			notify("Pi", "Permission gate: awaiting input");
 			const choice = await ctx.ui.select(
-				`AI safety check failed\n\n  ${truncateCommand(command)}\n\nThe LLM could not classify this command. Allow it?`,
+				`AI safety check failed\n\n  ${truncateCommand(command)}\n\nThe LLM could not classify this operation. Allow it?`,
 				["Yes", "No"],
 			);
 			if (choice !== "Yes") {
@@ -488,13 +510,13 @@ export default function (pi: ExtensionAPI) {
 				logCommandDecision(command, verdict.risk, blockLevel, "blocked", verdict.reason);
 				return {
 					block: true,
-					reason: `Potentially dangerous command: ${verdict.reason}`,
+					reason: `Potentially dangerous operation: ${verdict.reason}`,
 				};
 			}
 
-			notify("Pi", `Permission gate: ${verdict.risk} risk command`);
+			notify("Pi", `Permission gate: ${verdict.risk} risk operation`);
 			const choice = await ctx.ui.select(
-				`Potentially dangerous command (${verdict.risk} risk)\n\n  ${truncateCommand(command)}\n\n${verdict.reason}\n\nAllow?`,
+				`Potentially dangerous operation (${verdict.risk} risk)\n\n  ${truncateCommand(command)}\n\n${verdict.reason}\n\nAllow?`,
 				["Yes", "No"],
 			);
 

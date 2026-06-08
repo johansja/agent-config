@@ -366,6 +366,13 @@ function extractAgentResult(messages: any[]): string {
 	return texts.join("\n") || "[Empty assistant message]";
 }
 
+/** Match context-overflow errors pi handles via auto-compaction (e.g. 400 context length exceeded). */
+function isContextOverflowError(message: any): boolean {
+	if (message.stopReason !== "error" || !message.errorMessage) return false;
+	const err = message.errorMessage;
+	return /maximum context length|exceeds the context window|exceeds.*maximum context length|prompt is too long|maximum prompt length|reduce the length of the messages|input token count.*exceeds|context window exceeds limit|token limit exceeded|context length exceeded|too many tokens/i.test(err);
+}
+
 // ─── cmux CLI helpers ────────────────────────────────────────────────────────
 
 async function cmuxExec(...args: string[]): Promise<{ stdout: string; stderr: string }> {
@@ -1287,6 +1294,12 @@ export default function teamExtension(pi: ExtensionAPI) {
 			return;
 		}
 		if (stopReason === "aborted") {
+			return;
+		}
+
+		// Context overflow errors are handled by pi via auto-compaction + retry.
+		// Don't report a transient intermediate error to the orchestrator.
+		if (isContextOverflowError(lastAssistant)) {
 			return;
 		}
 

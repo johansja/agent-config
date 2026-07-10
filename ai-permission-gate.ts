@@ -45,6 +45,7 @@ import {
 	ModelRegistry,
 	SettingsManager,
 	type ExtensionAPI,
+	type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { completeSimple, type Model, type Api, type Context } from "@earendil-works/pi-ai";
 import * as fs from "node:fs";
@@ -395,6 +396,61 @@ function notify(title: string, body: string): void {
 	}
 }
 
+/**
+ * Emit a herdr:blocked state change so herdr tracks "agent paused on user input".
+ * Defensive: silently no-ops if pi.events is unavailable (e.g. herdr not installed,
+ * or a future pi version without a shared EventBus). herdr maintains a counter,
+ * so every active:true must pair with exactly one active:false — confirmWithUser
+ * handles that pairing via try/finally.
+ */
+function emitBlocked(pi: ExtensionAPI, active: boolean, label?: string): void {
+	try {
+		pi.events?.emit?.("herdr:blocked", { active, label });
+	} catch {
+		// Silently ignore if the events bus is unavailable
+	}
+}
+
+interface ConfirmOptions {
+	risk: RiskLevel | "unknown";
+	notifyBody: string;
+	promptTitle: string;
+	promptBody: string;
+	blockedLogReason: string;
+	confirmedLogReason: string;
+	blockReason: string;
+}
+
+/**
+ * Notify + emit herdr:blocked + prompt the user to allow/deny an operation.
+ * Wraps ctx.ui.select() in try/finally so the blocked state is always released
+ * (user answer, abort, or error). Returns {block:true} on denial, undefined on allow.
+ */
+async function confirmWithUser(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	command: string,
+	blockLevel: RiskLevel,
+	opts: ConfirmOptions,
+): Promise<{ block: true; reason: string } | undefined> {
+	notify("Pi", opts.notifyBody);
+	emitBlocked(pi, true, opts.notifyBody);
+	try {
+		const choice = await ctx.ui.select(
+			`${opts.promptTitle}\n\n  ${truncateCommand(command)}\n\n${opts.promptBody}\n\nAllow?`,
+			["Yes", "No"],
+		);
+		if (choice !== "Yes") {
+			logCommandDecision(command, opts.risk, blockLevel, "blocked", opts.blockedLogReason);
+			return { block: true, reason: opts.blockReason };
+		}
+		logCommandDecision(command, opts.risk, blockLevel, "confirmed", opts.confirmedLogReason);
+		return undefined;
+	} finally {
+		emitBlocked(pi, false);
+	}
+}
+
 export default function (pi: ExtensionAPI) {
 	pi.on("tool_call", async (event, ctx) => {
 		let command: string;
@@ -488,17 +544,15 @@ export default function (pi: ExtensionAPI) {
 				logCommandDecision(command, "unknown", blockLevel, "allowed", "Fallback confirm without UI — allowed");
 				return undefined; // can't confirm in non-interactive mode, allow
 			}
-			notify("Pi", "Permission gate: awaiting input");
-			const choice = await ctx.ui.select(
-				`AI safety check failed\n\n  ${truncateCommand(command)}\n\nThe LLM could not classify this operation. Allow it?`,
-				["Yes", "No"],
-			);
-			if (choice !== "Yes") {
-				logCommandDecision(command, "unknown", blockLevel, "blocked", "Blocked by user (AI check failed)");
-				return { block: true, reason: "Blocked by user (AI check failed)" };
-			}
-			logCommandDecision(command, "unknown", blockLevel, "confirmed", "User confirmed after AI check failed");
-			return undefined;
+			return confirmWithUser(pi, ctx, command, blockLevel, {
+				risk: "unknown",
+				notifyBody: "Permission gate: awaiting input",
+				promptTitle: "AI safety check failed",
+				promptBody: "The LLM could not classify this operation.",
+				blockedLogReason: "Blocked by user (AI check failed)",
+				confirmedLogReason: "User confirmed after AI check failed",
+				blockReason: "Blocked by user (AI check failed)",
+			});
 		}
 
 		// Check if the risk level meets the block threshold
@@ -514,17 +568,15 @@ export default function (pi: ExtensionAPI) {
 				};
 			}
 
-			notify("Pi", `Permission gate: ${verdict.risk} risk operation`);
-			const choice = await ctx.ui.select(
-				`Potentially dangerous operation (${verdict.risk} risk)\n\n  ${truncateCommand(command)}\n\n${verdict.reason}\n\nAllow?`,
-				["Yes", "No"],
-			);
-
-			if (choice !== "Yes") {
-				logCommandDecision(command, verdict.risk, blockLevel, "blocked", "Blocked by user");
-				return { block: true, reason: "Blocked by user" };
-			}
-			logCommandDecision(command, verdict.risk, blockLevel, "confirmed", verdict.reason);
+			return confirmWithUser(pi, ctx, command, blockLevel, {
+				risk: verdict.risk,
+				notifyBody: `Permission gate: ${verdict.risk} risk operation`,
+				promptTitle: `Potentially dangerous operation (${verdict.risk} risk)`,
+				promptBody: verdict.reason,
+				blockedLogReason: "Blocked by user",
+				confirmedLogReason: verdict.reason,
+				blockReason: "Blocked by user",
+			});
 		} else {
 			logCommandDecision(command, verdict.risk, blockLevel, "allowed", verdict.reason);
 		}

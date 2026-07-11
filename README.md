@@ -115,6 +115,9 @@ ln -sf ~/projects/pi-extensions/team ~/.pi/agent/extensions/team
 mkdir -p ~/.pi/agent/team
 cp ~/projects/pi-extensions/team/examples/*.md ~/.pi/agent/team/
 # Then edit ~/.pi/agent/team/*.md to set your model and preferences
+
+# Prompts (slash commands)
+ln -sf ~/projects/pi-extensions/prompts/mr-review.md ~/.pi/agent/prompts/mr-review.md
 ```
 
 The symlinks ensure edits in this repo are immediately reflected in pi without copying.

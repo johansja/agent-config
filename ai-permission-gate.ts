@@ -50,6 +50,7 @@ import {
 import { completeSimple, type Model, type Api, type Context } from "@earendil-works/pi-ai";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { blockStart, blockEnd } from "./shared/notify.ts";
 
 // Risk levels, ordered from least to most severe
 const RISK_LEVELS = ["safe", "low", "medium", "high"] as const;
@@ -383,34 +384,6 @@ async function classifyCommand(
 	}
 }
 
-function notify(title: string, body: string): void {
-	if (process.env.WT_SESSION) {
-		// Windows Terminal toast
-		const { execFile } = require("node:child_process");
-		execFile("powershell.exe", ["-NoProfile", "-Command", windowsToastScript(title, body)]);
-	} else if (process.env.KITTY_WINDOW_ID) {
-		process.stdout.write(`\x1b]99;i=1:d=0;${title}\x1b\\`);
-		process.stdout.write(`\x1b]99;i=1:p=body;${body}\x1b\\`);
-	} else {
-		process.stdout.write(`\x1b]777;notify;${title};${body}\x07`);
-	}
-}
-
-/**
- * Emit a herdr:blocked state change so herdr tracks "agent paused on user input".
- * Defensive: silently no-ops if pi.events is unavailable (e.g. herdr not installed,
- * or a future pi version without a shared EventBus). herdr maintains a counter,
- * so every active:true must pair with exactly one active:false — confirmWithUser
- * handles that pairing via try/finally.
- */
-function emitBlocked(pi: ExtensionAPI, active: boolean, label?: string): void {
-	try {
-		pi.events?.emit?.("herdr:blocked", { active, label });
-	} catch {
-		// Silently ignore if the events bus is unavailable
-	}
-}
-
 interface ConfirmOptions {
 	risk: RiskLevel | "unknown";
 	notifyBody: string;
@@ -433,8 +406,7 @@ async function confirmWithUser(
 	blockLevel: RiskLevel,
 	opts: ConfirmOptions,
 ): Promise<{ block: true; reason: string } | undefined> {
-	notify("Pi", opts.notifyBody);
-	emitBlocked(pi, true, opts.notifyBody);
+	blockStart(pi, opts.notifyBody);
 	try {
 		const choice = await ctx.ui.select(
 			`${opts.promptTitle}\n\n  ${truncateCommand(command)}\n\n${opts.promptBody}\n\nAllow?`,
@@ -447,7 +419,7 @@ async function confirmWithUser(
 		logCommandDecision(command, opts.risk, blockLevel, "confirmed", opts.confirmedLogReason);
 		return undefined;
 	} finally {
-		emitBlocked(pi, false);
+		blockEnd(pi);
 	}
 }
 
@@ -564,7 +536,7 @@ export default function (pi: ExtensionAPI) {
 				logCommandDecision(command, verdict.risk, blockLevel, "blocked", verdict.reason);
 				return {
 					block: true,
-					reason: `Potentially dangerous operation: ${verdict.reason}`,
+					reason: `Permission gate blocked this operation (risk: ${verdict.risk}): ${verdict.reason}. Do not retry or work around it. Report exactly what you needed to run and why to your caller, then stop.`,
 				};
 			}
 

@@ -5,6 +5,7 @@ Custom extensions for [pi](https://github.com/MarioZechner/pi-coding-agent), the
 > **Attribution:** These extensions are derived from example extensions in the [pi-mono](https://github.com/MarioZechner/pi-mono) repository:
 > - **ai-permission-gate** evolved from pi-mono's `permission-gates` example — replacing regex-based pattern matching with LLM-powered classification and CWD-aware risk assessment.
 > - **team** evolved from pi-mono's `subagent` example — expanding from a simple subagent spawner into a full multi-role workflow orchestrator with phase tracking, file-based mailboxes, and auto-orchestration.
+- **auto-session-name** is the repo's first greenfield extension (not derived from a pi-mono example) — bringing opencode-style auto session naming to pi via the `agent_settled` hook.
 
 ## Extensions
 
@@ -24,6 +25,44 @@ Uses an LLM (spawned as a child pi process) to classify bash commands by risk le
 **Install:** Symlink `ai-permission-gate.ts` into `~/.pi/agent/extensions/`.
 
 **Test:** `node --test ai-permission-gate.test.mjs`
+
+### auto-session-name
+
+Automatically generates a short, human-readable name for each new session after the first user/assistant exchange completes — opencode-style auto-naming for pi. The name appears in `/resume` and `pi -r` instead of the first-message preview.
+
+**Behavior:**
+
+- Fires once per session on the first `agent_settled` (after the initial exchange — including tool calls, retries, and auto-compaction — fully completes).
+- Only names brand-new sessions (branch has 0 prior user messages at `session_start`). Resumed (`pi -c`, `/resume`) and forked sessions are left alone.
+- Skips if a name is already set (`/name`, `--name`, or another extension).
+- Skips ephemeral sessions (`--no-session`).
+- Silently skips on any error; set `PI_AUTO_SESSION_NAME_DEBUG=1` for diagnostics.
+
+**Configuration** (precedence: env var > settings.json > default):
+
+Set a cheaper model in `~/.pi/agent/settings.json` (same file as `permissionGate`):
+
+```json
+{
+  "autoSessionName": {
+    "model": "bitdeerai/MiniMaxAI/MiniMax-M2.5"
+  }
+}
+```
+
+Environment variables override settings.json:
+
+| Variable | Default | Description |
+|---|---|---|
+| `PI_AUTO_SESSION_NAME_MODEL` | session model | Model for naming, `provider/modelId` or bare id |
+| `PI_AUTO_SESSION_NAME_DISABLED` | unset | `1`/`true` disables the extension |
+| `PI_AUTO_SESSION_NAME_DEBUG` | unset | `1`/`true` logs diagnostics to stderr and TUI |
+| `PI_AUTO_SESSION_NAME_MAX_CHARS` | `60` | Truncate generated name to N chars |
+| `PI_AUTO_SESSION_NAME_TIMEOUT` | `15000` | LLM call timeout in ms |
+
+**Install:** Symlink `auto-session-name.ts` into `~/.pi/agent/extensions/`.
+
+**Test:** `node --test auto-session-name.test.mjs`
 
 ### team
 
@@ -65,6 +104,9 @@ See `team/examples/` for starter templates.
 
 # ai-permission-gate
 ln -sf ~/projects/pi-extensions/ai-permission-gate.ts ~/.pi/agent/extensions/ai-permission-gate.ts
+
+# auto-session-name
+ln -sf ~/projects/pi-extensions/auto-session-name.ts ~/.pi/agent/extensions/auto-session-name.ts
 
 # team
 ln -sf ~/projects/pi-extensions/team ~/.pi/agent/extensions/team

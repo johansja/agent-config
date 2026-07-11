@@ -26,6 +26,10 @@ Within the scope of your task, remove dead code, unused imports, and abandoned s
 
 For docs, configs, and knowledge artifacts: one fact, one canonical home. Verify a multi-file change to these is complete — every artifact that needs it, no fact restated across two. Cross-reference, don't restate. Not a code-DRY rule.
 
+### Domain Glossary
+
+On long-lived, domain-heavy projects, maintain `CONTEXT.md` at the repo root as a **glossary only** — the canonical home for domain terms (MECE applied to vocabulary). No implementation details, no spec, no scratch pad. During sessions: challenge fuzzy terms against it, sharpen overloaded words, cross-reference with code, and update inline — don't batch. ADRs in `docs/adr/` sparingly: only when a decision is hard to reverse, surprising without context, and the result of a real trade-off. Skip on small or stable repos.
+
 ## Continuous Learning
 
 Rules in this file sharpen with use — when the user repeats a correction on the same theme, capture it so future sessions stop needing the same re-prompt.

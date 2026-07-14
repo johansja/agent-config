@@ -118,6 +118,13 @@ cp ~/projects/pi-extensions/team/examples/*.md ~/.pi/agent/team/
 
 # Prompts (slash commands)
 ln -sf ~/projects/pi-extensions/prompts/mr-review.md ~/.pi/agent/prompts/mr-review.md
+ln -sf ~/projects/pi-extensions/prompts/triple-review.md ~/.pi/agent/prompts/triple-review.md
+
+# Subagent templates
+ln -sf ~/projects/pi-extensions/agents/planner.md ~/.pi/agent/agents/planner.md
+ln -sf ~/projects/pi-extensions/agents/reviewer.md ~/.pi/agent/agents/reviewer.md
+ln -sf ~/projects/pi-extensions/agents/scout.md ~/.pi/agent/agents/scout.md
+ln -sf ~/projects/pi-extensions/agents/worker.md ~/.pi/agent/agents/worker.md
 ```
 
 The symlinks ensure edits in this repo are immediately reflected in pi without copying.

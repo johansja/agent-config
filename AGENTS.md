@@ -11,6 +11,7 @@ This repository contains custom extensions for the pi coding agent. Extensions a
 - Shared helpers live under `shared/` (e.g., `shared/notify.ts`). It has no `index.ts`/`package.json`, so pi's loader does not treat it as an extension.
 - Test files sit alongside their extension (e.g., `ai-permission-gate.test.mjs`).
 - Reusable prompt templates (slash commands) live under `prompts/` (e.g., `prompts/mr-review.md`), symlinked into `~/.pi/agent/prompts/`. Not extensions — a different artifact type, but maintained here for shared version control and symlink deployment.
+- Subagent templates (markdown) live under `agents/` (e.g., `agents/reviewer.md`), symlinked into `~/.pi/agent/agents/`. Same version-control + symlink pattern as `prompts/`.
 
 ## Development Guidelines
 

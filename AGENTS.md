@@ -28,7 +28,3 @@ This repository contains custom extensions for the pi coding agent. Extensions a
 - Prefer environment variables for configuration (prefixed with `PI_`).
 - Keep extensions self-contained — do not cross-import between extensions. **Exception:** helpers under `shared/` may be imported by multiple extensions. Prefer this over copy-pasting when the same logic (e.g. notification, herdr state emission) is needed in two or more extensions — duplicated helpers drift silently.
 - Write tests as `.mjs` files using Node.js built-in `node:test` and `node:assert/strict`.
-
-## Git
-
-- Never auto-commit. Make changes, inform the user, and let them review and commit.

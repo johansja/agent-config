@@ -1,8 +1,8 @@
 ---
-description: Three-axis parallel code review — correctness, security, style run as parallel subagents, reported unmerged. Local only.
+description: Two-axis parallel review — correctness and security run as parallel subagents, reported unmerged. Covers the axes the code-review skill lacks. Local only.
 ---
 
-Three-axis review of recent changes along **correctness**, **security**, and **style**, in parallel, without merging. The three axes are deliberately separate — a change can pass one and fail another.
+Two-axis review of recent changes along **correctness** and **security**, in parallel, without merging — the two axes the `code-review` skill does not cover. For Standards/Style + Spec, use `/skill:code-review` instead. The axes are deliberately separate — a change can pass one and fail another.
 
 ## 1. Resolve the target
 
@@ -13,9 +13,9 @@ If the user named files, commits, or a range in conversation, review that. Other
 
 Capture the diff. If empty, stop — nothing to review.
 
-## 2. Fire three parallel subagents
+## 2. Fire two parallel subagents
 
-Use the `subagent` tool with the **`tasks`** parameter (not `chain`) to fire all three in parallel in one message. Each uses the `reviewer` agent.
+Use the `subagent` tool with the **`tasks`** parameter (not `chain`) to fire both in parallel in one message. Each uses the `reviewer` agent.
 
 ### Correctness axis
 
@@ -36,32 +36,9 @@ Scope: input trust boundaries, auth/authz surface, secret handling, injection (S
 
 Output: under a single `## Security` heading, findings only. Same severity tags, same citation format. No padding.
 
-### Style axis
-
-Task brief — give the subagent:
-- The full diff from step 1
-- Any repo standards files: read `AGENTS.md`, `CODING_STANDARDS.md`, `CONTRIBUTING.md` at the repo root if present, and include their coding-rule sections
-- The Fowler smell baseline below, pasted in full
-
-Fowler smell baseline — each is a judgement call, never a hard violation. A documented repo standard always overrides. Skip anything tooling already enforces.
-- **Mysterious Name** — function/variable/type whose name doesn't reveal what it does. → rename.
-- **Duplicated Code** — same logic shape in multiple places in the diff. → extract.
-- **Feature Envy** — method reaching into another object's data more than its own. → move it.
-- **Data Clumps** — same few fields/params travelling together. → bundle into a type.
-- **Primitive Obsession** — primitive standing in for a domain concept. → give it a type.
-- **Repeated Switches** — same switch/if-cascade on the same type across the diff. → polymorphism or shared map.
-- **Shotgun Surgery** — one logical change forces scattered edits across many files. → gather into one module.
-- **Divergent Change** — one file edited for several unrelated reasons. → split.
-- **Speculative Generality** — abstraction/params/hooks for needs the spec doesn't have. → delete.
-- **Message Chains** — long `a.b().c().d()` navigation. → hide behind one method.
-- **Middle Man** — class/function that mostly delegates onward. → cut it.
-- **Refused Bequest** — subclass ignoring most of what it inherits. → drop inheritance, use composition.
-
-Output: under a single `## Style` heading, per-file findings only. For each: cite the violated standard (file + rule) or name the smell, quote the hunk. Distinguish hard violations (documented-standard breach) from judgement calls (smells). Skip what tooling enforces. No padding.
-
 ## 3. Aggregate locally
 
-Present all three reports in this session under `## Correctness`, `## Security`, and `## Style`. **Do not merge, do not rerank.** End with one summary line per axis: total findings + worst issue (if any). Do not pick a single winner across axes.
+Present both reports in this session under `## Correctness` and `## Security`. **Do not merge, do not rerank.** End with one summary line per axis: total findings + worst issue (if any). Do not pick a single winner across axes.
 
 ## 4. Local only
 

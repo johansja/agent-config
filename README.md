@@ -126,10 +126,6 @@ ln -sf ~/projects/pi-extensions/agents/reviewer.md ~/.pi/agent/agents/reviewer.m
 ln -sf ~/projects/pi-extensions/agents/scout.md ~/.pi/agent/agents/scout.md
 ln -sf ~/projects/pi-extensions/agents/worker.md ~/.pi/agent/agents/worker.md
 
-# Local skill overrides (hand-symlinked; not managed by `npx skills`)
-ln -sf ~/projects/pi-extensions/skills/code-review ~/.agents/skills/code-review
-ln -sf ~/projects/pi-extensions/skills/codebase-design ~/.agents/skills/codebase-design
-ln -sf ~/projects/pi-extensions/skills/improve-codebase-architecture ~/.agents/skills/improve-codebase-architecture
 ```
 
 The symlinks ensure edits in this repo are immediately reflected in pi without copying.

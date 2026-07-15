@@ -3,14 +3,32 @@
 ## Execution Mindset
 
 ### Think Before Coding
-State your assumptions before implementing. If something is unclear, ask — don't guess or hide uncertainty. If a question can be answered by the codebase, explore it instead of asking the user.
+State your assumptions before implementing. If something is unclear, ask — don't guess or hide uncertainty.
 
 ### Goal-Driven Execution
 Define what success looks like before starting. Transform vague requests into verifiable outcomes.
 
-### High-Blast-Radius Changes
+### Interview Discipline
+
+When interviewing the user before implementation, walk down each branch of the decision tree, resolving dependencies between decisions one-by-one rather than asking scattershot. For each question, provide your recommended answer before asking the user to confirm — take a stand, don't run an endless Socratic loop. If a question can be answered by exploring the codebase, explore the codebase instead of asking the user.
+
+### Surgical Changes
+
+Every changed line must trace to the request — no drive-by refactors, speculative features, or unsolicited docs; flag unrelated issues, don't fix them. Surgical means minimum necessary, not minimum file count. Greenfield exempt.
 
 High-blast-radius changes — dependency bumps, config, auth, secrets, permissions — warrant extra skepticism regardless of how few lines change.
+
+### Subtractive Bias
+
+Within the scope of your task, remove dead code, unused imports, and abandoned stubs rather than leave them in place — abandoned code does not ship. When editing existing code, simplify if you can; don't add indirection or generality to preserve structure that isn't actively used.
+
+### MECE Discipline
+
+For docs, configs, and knowledge artifacts: one fact, one canonical home. Verify a multi-file change to these is complete — every artifact that needs it, no fact restated across two. Cross-reference, don't restate. Not a code-DRY rule.
+
+### Domain Glossary
+
+On long-lived, domain-heavy projects, maintain `CONTEXT.md` at the repo root as a **glossary only** — the canonical home for domain terms (MECE applied to vocabulary). No implementation details, no spec, no scratch pad. During sessions: challenge fuzzy terms against it, sharpen overloaded words, cross-reference with code, and update inline — don't batch. ADRs in `docs/adr/` sparingly: only when a decision is hard to reverse, surprising without context, and the result of a real trade-off. Skip on small or stable repos.
 
 ## Continuous Learning
 

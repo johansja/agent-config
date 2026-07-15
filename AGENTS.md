@@ -12,6 +12,7 @@ This repository contains custom extensions for the pi coding agent. Extensions a
 - Test files sit alongside their extension (e.g., `ai-permission-gate.test.mjs`).
 - Reusable prompt templates (slash commands) live under `prompts/` (e.g., `prompts/mr-review.md`), symlinked into `~/.pi/agent/prompts/`. Not extensions — a different artifact type, but maintained here for shared version control and symlink deployment.
 - Subagent templates (markdown) live under `agents/` (e.g., `agents/reviewer.md`), symlinked into `~/.pi/agent/agents/`. Same version-control + symlink pattern as `prompts/`.
+- Model-invoked skills live under `skills/` (e.g., `skills/grilling/SKILL.md`), symlinked into `~/.pi/agent/skills/`. Same version-control + symlink pattern as `prompts/` and `agents/`.
 
 ## Development Guidelines
 

@@ -126,6 +126,9 @@ ln -sf ~/projects/pi-extensions/agents/reviewer.md ~/.pi/agent/agents/reviewer.m
 ln -sf ~/projects/pi-extensions/agents/scout.md ~/.pi/agent/agents/scout.md
 ln -sf ~/projects/pi-extensions/agents/worker.md ~/.pi/agent/agents/worker.md
 
+# Skills (model-invoked)
+ln -sf ~/projects/pi-extensions/skills/grilling ~/.pi/agent/skills/grilling
+
 ```
 
 The symlinks ensure edits in this repo are immediately reflected in pi without copying.

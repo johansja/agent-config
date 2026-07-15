@@ -24,20 +24,7 @@ For docs, configs, and knowledge artifacts: one fact, one canonical home. Verify
 
 ## Continuous Learning
 
-Rules in this file sharpen with use — when the user repeats a correction on the same theme, capture it so future sessions stop needing the same re-prompt.
-
-### Triggers
-- **3rd same-theme correction.** Surface (mandatory): `Recurrence (3×): <theme> — "<p1>", "<p2>", "<p3>".` Run Writing immediately.
-- **"Remember/note/record this".** Surface the same way. Run Writing immediately.
-
-One-off corrections are not lessons.
-
-### Writing
-1. **Scope first.** Project → edit project AGENTS.md, tell user. Cross-project → propose diff against `/Users/straitdeer/projects/pi-extensions/global/AGENTS.md`; apply after "yes".
-2. Grep target file; refine related heading in place, or create new `###`/`##` if nothing fits.
-3. One or two concrete, behavior-changing lines (commands, env, gotchas). No platitudes.
-4. `## Continuous Learning` is exempt from auto-edits — recurrence here → surface, don't edit, ask user.
-5. More than 15 entries in a section → propose concrete consolidation in the DONE report.
+Lessons accumulate so future sessions don't need the same re-prompt. Default target is the project AGENTS.md; this file only gains a line for agent-behavior failure modes recurring across codebases (e.g. "agent claims tests pass without running them"). Use the `capture-lesson` skill.
 
 ## Git Commits
 

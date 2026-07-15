@@ -26,15 +26,16 @@ Read `~/.agents/skills/code-review/SKILL.md` and run its Standards + Spec review
 
 ## 5. Aggregate locally
 
-Present both reports in this session under `## Standards` and `## Spec`, per the code-review skill's aggregation rules. **Do not merge, do not rerank.**
+Present both reports in this session under `## Standards` and `## Spec`, per the code-review skill's aggregation rules. Within each axis block, render located findings as `**path:line**` (or `**path:old-line**`, `**path:lineA:lineB**`, `**path**` file-level) sub-blocks with the finding text beneath; render `unlocated` findings under a separate `**unlocated:**` sub-block at the end of the axis. This is a faithful dry-run of what step 6 posts — same anchors, same axis separation. **Do not merge, do not rerank.**
 
-## 6. Posting — local by default
+## 6. Posting — local by default, inline where possible
 
 By default, **do not post anything to the MR.** Reports stay in this session.
 
-If the user passed `--post` (check `${@:2}`) or asks to post after seeing the local reports, post **two separate comments** to the MR — one per axis — via:
-```
-glab mr note $1 -m "<standards-report>"
-glab mr note $1 -m "<spec-report>"
-```
-Two comments, not one. The don't-merge discipline is the point.
+If the user passed `--post` (check `${@:2}`) or asks to post after seeing the local reports, post **inline wherever a finding has an anchor**, falling back to MR-level notes only for the `unlocated` bucket. Per axis:
+
+- **Located finding** → one diff comment: `glab mr note create $1 --file <path> --line <N> -m "<finding>"`. Use `--old-line <N>` for comments on removed code, `--line <A:B>` for a multiline range, or omit `--line` (keep `--file`) for a file-level note.
+- **Two axes, same line** → post **two** `glab mr note create` calls on that line, one per axis. Do not merge them into one note — the don't-merge discipline applies to inline comments too.
+- **`unlocated` findings** → one MR-level note per axis that has any: `glab mr note create $1 -m "<axis> — unlocated: <findings>"`. At most two MR-level notes total.
+
+No heuristic line-fitting: if a finding came back `unlocated`, it posts at MR level or not at all.

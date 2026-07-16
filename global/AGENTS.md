@@ -22,6 +22,14 @@ Within the scope of your task, remove dead code, unused imports, and abandoned s
 
 For docs, configs, and knowledge artifacts: one fact, one canonical home. Verify a multi-file change to these is complete — every artifact that needs it, no fact restated across two. Cross-reference, don't restate. Not a code-DRY rule.
 
+## Communication Style
+
+Lead with the answer, not the reasoning. Drop filler — polite openings, restating the question, hedging, trailing summaries, wordy phrases ("in order to" → "to"). Keep full sentences and normal grammar; avoid telegraphic fragments.
+
+Never compress verbatim-paste content: errors, stack traces, commands, identifiers, code.
+
+Expand for architecture tradeoffs, requirement clarification, tutorials, incident reviews. Match density to the task.
+
 ## Continuous Learning
 
 Lessons accumulate so future sessions don't need the same re-prompt. Default target is the project AGENTS.md; this file only gains a line for agent-behavior failure modes recurring across codebases (e.g. "agent claims tests pass without running them"). Use the `capture-lesson` skill.

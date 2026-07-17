@@ -5,7 +5,8 @@
  * UI). Each block-start pairs with exactly one block-end via the caller's try/finally
  * or .finally(), and all three transports fire together, so a producer cannot forget
  * one and silently desync:
- *   - OSC terminal notification (best-effort out-of-band signal)
+ *   - terminal notification: `cmux notify` when running under cmux (routes to
+ *     the cmux notification panel, dock badge, and pane flash), else OSC 99/777
  *   - herdr:blocked event (so herdr tracks "agent paused on user input")
  *   - TUI status-bar indicator (in-band footer label while the block is open)
  *
@@ -13,6 +14,7 @@
  * the status indicator; omit them for notify+herdr only.
  */
 
+import { spawn } from "node:child_process";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 /** Status colors supported by pi's theme.fg(). */
@@ -29,17 +31,38 @@ export interface StatusSpec {
 }
 
 /**
- * Fire a native terminal notification. Supports:
- * - OSC 99: Kitty
- * - OSC 777: Ghostty, iTerm2, WezTerm, rxvt-unicode (default)
+ * Fire a terminal notification. Under cmux (CMUX_SURFACE_ID set) this shells
+ * out to `cmux notify` so it routes through cmux's notification panel, dock
+ * badge, and pane flash instead of a raw escape sequence that cmux may
+ * suppress. Falls back to direct OSC bytes on spawn failure or when not
+ * under cmux.
+ *   - OSC 99: Kitty
+ *   - OSC 777: Ghostty, iTerm2, WezTerm, rxvt-unicode (default)
  */
-function notify(title: string, body: string): void {
+function notifyOsc(title: string, body: string): void {
 	if (process.env.KITTY_WINDOW_ID) {
 		process.stdout.write(`\x1b]99;i=1:d=0;${title}\x1b\\`);
 		process.stdout.write(`\x1b]99;i=1:p=body;${body}\x1b\\`);
 	} else {
 		process.stdout.write(`\x1b]777;notify;${title};${body}\x07`);
 	}
+}
+
+function notify(title: string, body: string): void {
+	if (process.env.CMUX_SURFACE_ID) {
+		try {
+			const child = spawn("cmux", ["notify", "--title", title, "--body", body], {
+				stdio: "ignore",
+				detached: true,
+			});
+			child.on("error", () => notifyOsc(title, body));
+			child.unref();
+			return;
+		} catch {
+			// Fall through to OSC if spawn itself threw
+		}
+	}
+	notifyOsc(title, body);
 }
 
 /**

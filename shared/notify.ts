@@ -3,15 +3,17 @@
  *
  * Used by ai-permission-gate (permission prompts) and questionnaire (multi-question
  * UI). Each block-start pairs with exactly one block-end via the caller's try/finally
- * or .finally(), and all three transports fire together, so a producer cannot forget
+ * or .finally(), and all four transports fire together, so a producer cannot forget
  * one and silently desync:
  *   - terminal notification: `cmux notify` when running under cmux (routes to
  *     the cmux notification panel, dock badge, and pane flash), else OSC 99/777
  *   - herdr:blocked event (so herdr tracks "agent paused on user input")
+ *   - cmux sidebar status pill via `cmux set-status`/`clear-status` (keyed by
+ *     the status key, so each extension manages its own entry; only under cmux)
  *   - TUI status-bar indicator (in-band footer label while the block is open)
  *
  * Pass `ctx` and `status` to blockStart (and `ctx`/`statusKey` to blockEnd) to enable
- * the status indicator; omit them for notify+herdr only.
+ * the cmux sidebar pill and the status indicator; omit them for notify+herdr only.
  */
 
 import { spawn } from "node:child_process";
@@ -80,6 +82,43 @@ function emitBlocked(pi: ExtensionAPI, active: boolean, label?: string): void {
 }
 
 /**
+ * Set a cmux sidebar status pill. Best-effort fire-and-forget: silently no-ops
+ * when not under cmux (CMUX_SURFACE_ID unset) or if the spawn fails. Each
+ * extension manages its own pill via a unique key, so this never collides with
+ * cmux's bundled hook-driven pill or other extensions' pills. cmux clears the
+ * pill on blockEnd via cmuxClearStatus with the same key. `hourglass` is the
+ * cmux Waiting convention.
+ */
+function cmuxSetStatus(spec: StatusSpec): void {
+	if (!process.env.CMUX_SURFACE_ID) return;
+	try {
+		const child = spawn("cmux", ["set-status", spec.key, spec.text, "--icon", "hourglass"], {
+			stdio: "ignore",
+			detached: true,
+		});
+		child.on("error", () => {});
+		child.unref();
+	} catch {
+		// Silent: sidebar pill is best-effort
+	}
+}
+
+/** Clear a cmux sidebar status pill previously set by cmuxSetStatus. */
+function cmuxClearStatus(key: string): void {
+	if (!process.env.CMUX_SURFACE_ID) return;
+	try {
+		const child = spawn("cmux", ["clear-status", key], {
+			stdio: "ignore",
+			detached: true,
+		});
+		child.on("error", () => {});
+		child.unref();
+	} catch {
+		// Silent
+	}
+}
+
+/**
  * Set a TUI status-bar indicator. Best-effort: silently no-ops if ctx.ui or
  * setStatus is unavailable (non-interactive mode, older pi, headless tests), or
  * if the theme proxy throws before initTheme (pi-web). Guards modeled on
@@ -112,9 +151,9 @@ function clearStatus(ctx: ExtensionContext | undefined, key: string): void {
 
 /**
  * Begin a user-input block: fire the terminal notification, emit
- * herdr:blocked active:true, and set the TUI status indicator — all from one
- * call, so no transport can be forgotten. Caller MUST call blockEnd exactly
- * once (in a finally clause) to release the blocked state and clear the status.
+ * herdr:blocked active:true, set the cmux sidebar pill, and set the TUI
+ * status indicator — all from one call, so no transport can be forgotten.
+ * Caller MUST call blockEnd exactly once (in a finally clause) to release them.
  */
 export function blockStart(
 	pi: ExtensionAPI,
@@ -124,14 +163,15 @@ export function blockStart(
 ): void {
 	notify("Pi", label);
 	emitBlocked(pi, true, label);
+	if (status) cmuxSetStatus(status);
 	if (ctx && status) setStatus(ctx, status);
 }
 
 /**
- * End a user-input block: emit herdr:blocked active:false and clear the TUI
- * status indicator if a status key was given. Pair with blockStart in
- * try/finally or .finally() so the state is always released on submit,
- * cancel, or error.
+ * End a user-input block: emit herdr:blocked active:false, clear the cmux
+ * sidebar pill, and clear the TUI status indicator if a status key was given.
+ * Pair with blockStart in try/finally or .finally() so the state is always
+ * released on submit, cancel, or error.
  */
 export function blockEnd(
 	pi: ExtensionAPI,
@@ -139,5 +179,6 @@ export function blockEnd(
 	statusKey?: string,
 ): void {
 	emitBlocked(pi, false);
+	if (statusKey) cmuxClearStatus(statusKey);
 	if (ctx && statusKey) clearStatus(ctx, statusKey);
 }

@@ -7,7 +7,6 @@ This repository contains custom extensions for the pi coding agent. Extensions a
 ## Repository Structure
 
 - Single-file extensions live at the repo root (e.g., `ai-permission-gate.ts`).
-- Multi-file extensions live in their own directory (e.g., `team/index.ts`, `team/agents.ts`).
 - Shared helpers live under `shared/` (e.g., `shared/notify.ts`). It has no `index.ts`/`package.json`, so pi's loader does not treat it as an extension.
 - Test files sit alongside their extension (e.g., `ai-permission-gate.test.mjs`).
 - Reusable prompt templates (slash commands) live under `prompts/` (e.g., `prompts/mr-review.md`), symlinked into `~/.pi/agent/prompts/`. Not extensions — a different artifact type, but maintained here for shared version control and symlink deployment.
@@ -17,7 +16,7 @@ This repository contains custom extensions for the pi coding agent. Extensions a
 ## Development Guidelines
 
 - **Language:** TypeScript, targeting Node.js (pi uses tsx for runtime compilation).
-- **Imports:** Use `@earendil-works/pi-coding-agent` for the ExtensionAPI type and helpers. Use `@earendil-works/pi-ai` and `typebox` where needed (as the team extension does).
+- **Imports:** Use `@earendil-works/pi-coding-agent` for the ExtensionAPI type and helpers. Use `@earendil-works/pi-ai` and `typebox` where needed (as ai-permission-gate and questionnaire do).
 - **No build step:** pi loads `.ts` files directly via tsx. Do not add a build/compile step.
 - **No npm/pnpm:** This is not a Node.js package. Dependencies are pi's own dependencies (available at runtime).
 - **Symlink deployment:** Extensions are deployed by symlinking into `~/.pi/agent/extensions/` with `ln -sf`. The `shared/` directory must be symlinked too — jiti resolves `./shared/...` imports against the symlink's path in the extensions dir, not its realpath, so missing the symlink breaks those imports.

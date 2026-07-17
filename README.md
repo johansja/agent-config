@@ -4,7 +4,6 @@ Custom extensions for [pi](https://github.com/MarioZechner/pi-coding-agent), the
 
 > **Attribution:** These extensions are derived from example extensions in the [pi-mono](https://github.com/MarioZechner/pi-mono) repository:
 > - **ai-permission-gate** evolved from pi-mono's `permission-gates` example — replacing regex-based pattern matching with LLM-powered classification and CWD-aware risk assessment.
-> - **team** evolved from pi-mono's `subagent` example — expanding from a simple subagent spawner into a full multi-role workflow orchestrator with phase tracking, file-based mailboxes, and auto-orchestration.
 - **auto-session-name** is the repo's first greenfield extension (not derived from a pi-mono example) — bringing opencode-style auto session naming to pi via the `agent_settled` hook.
 
 > **Skills & prompts attribution:** The skills under `skills/` (`grilling`, `diagnosing-bugs`, `domain-modeling`) and prompts under `prompts/` (`improve-architecture`, `grill-with-docs`, `to-spec`) are condensed from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). The skill-driven workflow approach draws on [obra/superpowers](https://github.com/obra/superpowers) (MIT). Both are worth reading in full.
@@ -66,38 +65,6 @@ Environment variables override settings.json:
 
 **Test:** `node --test auto-session-name.test.mjs`
 
-### team
-
-Orchestrates multi-role development workflows across cmux panes. Each role (planner, coder, reviewer) runs as a full pi session with its own pane, model, tools, and file-based mailbox for inter-role communication.
-
-**Commands:**
-
-| Command | Description |
-|---|---|
-| `/team init <task-name> [<agent>...]` | Create workflow, become orchestrator (omitting agents loads all) |
-| `/team status [task-name]` | Show workflow state |
-| `/team resume [task-name]` | Resume an interrupted team session |
-| `/team list` | List available agents |
-| `/team history [task-name]` | Show dispatch history |
-| `/team cleanup <team-name>` | Remove a team regardless of status |
-
-**Workflow model:** LLM-driven orchestration. After `/team init`, you use the `team_orchestrate` tool to dispatch agents one at a time. The orchestrator (main pi session) decides what to run next based on agent results.
-
-**Agent configuration:** Place `.md` files in `~/.pi/agent/team/` (user-level) or `.pi/team/` (project-level). Each file has YAML frontmatter:
-
-```yaml
----
-name: reviewer
-description: Code review and testing specialist — scrutinizes quality, correctness, and test coverage
-tools: read, grep, find, ls
-roles: review, testing
-model: <your-preferred-model>
-thinking: high
----
-```
-
-See `team/examples/` for starter templates.
-
 ## Installation
 
 ```bash
@@ -109,14 +76,6 @@ ln -sf ~/projects/pi-extensions/ai-permission-gate.ts ~/.pi/agent/extensions/ai-
 
 # auto-session-name
 ln -sf ~/projects/pi-extensions/auto-session-name.ts ~/.pi/agent/extensions/auto-session-name.ts
-
-# team
-ln -sf ~/projects/pi-extensions/team ~/.pi/agent/extensions/team
-
-# Agent configuration for team (required)
-mkdir -p ~/.pi/agent/team
-cp ~/projects/pi-extensions/team/examples/*.md ~/.pi/agent/team/
-# Then edit ~/.pi/agent/team/*.md to set your model and preferences
 
 # Prompts (slash commands)
 ln -sf ~/projects/pi-extensions/prompts/mr-review.md ~/.pi/agent/prompts/mr-review.md

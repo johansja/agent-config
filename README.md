@@ -7,6 +7,8 @@ Custom extensions for [pi](https://github.com/MarioZechner/pi-coding-agent), the
 > - **team** evolved from pi-mono's `subagent` example — expanding from a simple subagent spawner into a full multi-role workflow orchestrator with phase tracking, file-based mailboxes, and auto-orchestration.
 - **auto-session-name** is the repo's first greenfield extension (not derived from a pi-mono example) — bringing opencode-style auto session naming to pi via the `agent_settled` hook.
 
+> **Skills & prompts attribution:** The skills under `skills/` (`grilling`, `diagnosing-bugs`, `domain-modeling`) and prompts under `prompts/` (`improve-architecture`, `grill-with-docs`, `to-spec`) are condensed from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). The skill-driven workflow approach draws on [obra/superpowers](https://github.com/obra/superpowers) (MIT). Both are worth reading in full.
+
 ## Extensions
 
 ### ai-permission-gate

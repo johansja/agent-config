@@ -405,7 +405,11 @@ async function confirmWithUser(
 	blockLevel: RiskLevel,
 	opts: ConfirmOptions,
 ): Promise<{ block: true; reason: string } | undefined> {
-	blockStart(pi, opts.notifyBody);
+	blockStart(pi, ctx, opts.notifyBody, {
+		key: "ai-permission-gate",
+		text: "🔒 awaiting input",
+		color: "accent",
+	});
 	try {
 		const choice = await ctx.ui.select(
 			`${opts.promptTitle}\n\n  ${truncateCommand(command)}\n\n${opts.promptBody}\n\nAllow?`,
@@ -418,7 +422,7 @@ async function confirmWithUser(
 		logCommandDecision(command, opts.risk, blockLevel, "confirmed", opts.confirmedLogReason);
 		return undefined;
 	} finally {
-		blockEnd(pi);
+		blockEnd(pi, ctx, "ai-permission-gate");
 	}
 }
 

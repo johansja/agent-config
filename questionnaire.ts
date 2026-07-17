@@ -101,7 +101,8 @@ export default function questionnaire(pi: ExtensionAPI) {
 			const totalTabs = questions.length + 1; // questions + Submit
 
 			const notifyBody = `Questionnaire: ${questions.length} question${questions.length !== 1 ? "s" : ""}`;
-			blockStart(pi, notifyBody);
+			const statusText = `❓ ${questions.length} question${questions.length !== 1 ? "s" : ""}`;
+			blockStart(pi, ctx, notifyBody, { key: "questionnaire", text: statusText, color: "accent" });
 			const result = await ctx.ui.custom<QuestionnaireResult>((tui, theme, _kb, done) => {
 				// State
 				let currentTab = 0;
@@ -377,7 +378,7 @@ export default function questionnaire(pi: ExtensionAPI) {
 					},
 					handleInput,
 				};
-			}).finally(() => blockEnd(pi));
+			}).finally(() => blockEnd(pi, ctx, "questionnaire"));
 
 			if (result.cancelled) {
 				return {

@@ -55,11 +55,10 @@
  */
 
 import {
-	AuthStorage,
-	ModelRegistry,
 	SettingsManager,
 	type ExtensionAPI,
 	type ExtensionContext,
+	type ModelRegistry,
 } from "@earendil-works/pi-coding-agent";
 import { completeSimple } from "@earendil-works/pi-ai/compat";
 import type { Model, Api, Context } from "@earendil-works/pi-ai";
@@ -318,11 +317,11 @@ function sanitizeTitle(raw: string, maxChars: number): string {
  * Returns undefined if no spec is provided (caller falls back to ctx.model).
  * Throws if the spec is provided but matches no model (or is ambiguous).
  */
-async function resolveModel(modelSpec: string | undefined): Promise<Model<Api> | undefined> {
+async function resolveModel(
+	modelSpec: string | undefined,
+	modelRegistry: ModelRegistry,
+): Promise<Model<Api> | undefined> {
 	if (!modelSpec) return undefined;
-
-	const authStorage = AuthStorage.create();
-	const modelRegistry = ModelRegistry.create(authStorage);
 
 	const slashIdx = modelSpec.indexOf("/");
 	if (slashIdx !== -1) {
@@ -512,7 +511,7 @@ export default function (pi: ExtensionAPI) {
 		}
 
 		try {
-			const model = (await resolveModel(config.modelSpec)) ?? ctx.model;
+			const model = (await resolveModel(config.modelSpec, ctx.modelRegistry)) ?? ctx.model;
 			if (!model) {
 				throw new Error(
 					"no model available — set PI_AUTO_SESSION_NAME_MODEL or configure a default model",

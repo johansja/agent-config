@@ -41,11 +41,10 @@
  */
 
 import {
-	AuthStorage,
-	ModelRegistry,
 	SettingsManager,
 	type ExtensionAPI,
 	type ExtensionContext,
+	type ModelRegistry,
 } from "@earendil-works/pi-coding-agent";
 import { completeSimple, type Model, type Api, type Context } from "@earendil-works/pi-ai";
 import * as fs from "node:fs";
@@ -256,11 +255,11 @@ function readPermissionGateTimeout(cwd: string, agentDir: string): number | unde
  * or a bare model id that's searched across providers.
  * Returns undefined if no model is configured (caller should fall back to ctx.model).
  */
-async function resolveModel(modelSpec: string | undefined): Promise<Model<Api> | undefined> {
+async function resolveModel(
+	modelSpec: string | undefined,
+	modelRegistry: ModelRegistry,
+): Promise<Model<Api> | undefined> {
 	if (!modelSpec) return undefined;
-
-	const authStorage = AuthStorage.create();
-	const modelRegistry = ModelRegistry.create(authStorage);
 
 	// Support "provider/modelId" format
 	const slashIdx = modelSpec.indexOf("/");
@@ -475,7 +474,7 @@ export default function (pi: ExtensionAPI) {
 		try {
 			// Use env var model if specified, otherwise prefer a fast/cheap model,
 			// falling back to the session's current model as last resort
-			const model = (await resolveModel(modelSpec)) ?? ctx.model;
+			const model = (await resolveModel(modelSpec, ctx.modelRegistry)) ?? ctx.model;
 			if (!model) {
 				throw new Error("No model available for classification");
 			}

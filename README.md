@@ -8,6 +8,8 @@ Custom extensions for [pi](https://github.com/MarioZechner/pi-coding-agent), the
 
 > **Skills & prompts attribution:** The skills under `skills/` (`grilling`, `diagnosing-bugs`, `domain-modeling`) and prompts under `prompts/` (`improve-architecture`, `grill-with-docs`, `to-spec`) are condensed from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). The skill-driven workflow approach draws on [obra/superpowers](https://github.com/obra/superpowers) (MIT). Both are worth reading in full.
 
+> **Reference:** [Ponytail](https://github.com/DietrichGebert/ponytail) (MIT) — a lazy-senior-dev persona for pi and other agent hosts. The guarded `setStatus` pattern in `shared/notify.ts` (try/catch around `ctx.ui.theme`, guard on missing `setStatus`) is adapted from its `syncStatus`. Also installable directly via `pi install git:github.com/DietrichGebert/ponytail`.
+
 ## Extensions
 
 ### ai-permission-gate

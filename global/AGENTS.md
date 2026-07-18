@@ -24,7 +24,7 @@ For docs, configs, and knowledge artifacts: one fact, one canonical home. Verify
 
 ## Communication Style
 
-Lead with the answer, not the reasoning. Drop filler — polite openings, restating the question, hedging, trailing summaries, wordy phrases ("in order to" → "to"). Keep full sentences and normal grammar; avoid telegraphic fragments.
+Lead with the answer, not the reasoning. Drop filler — polite openings, restating the question, hedging, trailing summaries, wordy phrases ("in order to" → "to"). Prefer extreme concision; fragments acceptable when unambiguous.
 
 Never compress verbatim-paste content: errors, stack traces, commands, identifiers, code.
 

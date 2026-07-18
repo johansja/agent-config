@@ -2,14 +2,6 @@
 
 Custom extensions for [pi](https://github.com/MarioZechner/pi-coding-agent), the coding agent harness.
 
-> **Attribution:** These extensions are derived from example extensions in the [pi-mono](https://github.com/MarioZechner/pi-mono) repository:
-> - **ai-permission-gate** evolved from pi-mono's `permission-gates` example — replacing regex-based pattern matching with LLM-powered classification and CWD-aware risk assessment.
-- **auto-session-name** is the repo's first greenfield extension (not derived from a pi-mono example) — bringing opencode-style auto session naming to pi via the `agent_settled` hook.
-
-> **Skills & prompts attribution:** The skills under `skills/` (`grilling`, `diagnosing-bugs`, `domain-modeling`) and prompts under `prompts/` (`improve-architecture`, `grill-with-docs`, `to-spec`) are condensed from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). The skill-driven workflow approach draws on [obra/superpowers](https://github.com/obra/superpowers) (MIT). Both are worth reading in full.
-
-> **Reference:** [Ponytail](https://github.com/DietrichGebert/ponytail) (MIT) — a lazy-senior-dev persona for pi and other agent hosts. The guarded `setStatus` pattern in `shared/notify.ts` (try/catch around `ctx.ui.theme`, guard on missing `setStatus`) is adapted from its `syncStatus`. Also installable directly via `pi install git:github.com/DietrichGebert/ponytail`.
-
 ## Extensions
 
 ### ai-permission-gate
@@ -95,3 +87,12 @@ ln -sf ~/projects/pi-extensions/skills/grilling ~/.pi/agent/skills/grilling
 ```
 
 The symlinks ensure edits in this repo are immediately reflected in pi without copying.
+
+## References
+
+Derivation sources for this repo — consult when improving the corresponding artifacts:
+
+- **[pi-mono](https://github.com/MarioZechner/pi-mono)** — `ai-permission-gate` evolved from its `permission-gates` example (regex matching → LLM classification with CWD-aware risk). `auto-session-name` is greenfield, not derived.
+- **[mattpocock/skills](https://github.com/mattpocock/skills)** (MIT) — `skills/grilling`, `skills/diagnosing-bugs`, `skills/domain-modeling` and `prompts/improve-architecture`, `prompts/grill-with-docs`, `prompts/to-spec` are condensed from here.
+- **[obra/superpowers](https://github.com/obra/superpowers)** (MIT) — the skill-driven workflow approach draws from here.
+- **[Ponytail](https://github.com/DietrichGebert/ponytail)** (MIT) — lazy-senior-dev persona for pi; the guarded `setStatus` pattern in `shared/notify.ts` (try/catch around `ctx.ui.theme`, guard on missing `setStatus`) is adapted from its `syncStatus`. Also installable via `pi install git:github.com/DietrichGebert/ponytail`.

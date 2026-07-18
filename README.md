@@ -83,6 +83,7 @@ ln -sf ~/projects/pi-extensions/agents/worker.md ~/.pi/agent/agents/worker.md
 
 # Skills (model-invoked)
 ln -sf ~/projects/pi-extensions/skills/grilling ~/.pi/agent/skills/grilling
+ln -sf ~/projects/pi-extensions/skills/diagrams ~/.pi/agent/skills/diagrams
 
 ```
 
@@ -92,7 +93,7 @@ The symlinks ensure edits in this repo are immediately reflected in pi without c
 
 Derivation sources for this repo — consult when improving the corresponding artifacts:
 
-- **[pi-mono](https://github.com/MarioZechner/pi-mono)** — `ai-permission-gate` evolved from its `permission-gates` example (regex matching → LLM classification with CWD-aware risk). `auto-session-name` is greenfield, not derived.
-- **[mattpocock/skills](https://github.com/mattpocock/skills)** (MIT) — `skills/grilling`, `skills/diagnosing-bugs`, `skills/domain-modeling` and `prompts/improve-architecture`, `prompts/grill-with-docs`, `prompts/to-spec` are condensed from here.
-- **[obra/superpowers](https://github.com/obra/superpowers)** (MIT) — the skill-driven workflow approach draws from here.
-- **[Ponytail](https://github.com/DietrichGebert/ponytail)** (MIT) — lazy-senior-dev persona for pi; the guarded `setStatus` pattern in `shared/notify.ts` (try/catch around `ctx.ui.theme`, guard on missing `setStatus`) is adapted from its `syncStatus`. Also installable via `pi install git:github.com/DietrichGebert/ponytail`.
+- **[pi-mono](https://github.com/MarioZechner/pi-mono)** — pi, the coding agent these extensions target.
+- **[mattpocock/skills](https://github.com/mattpocock/skills)** (MIT) — production-ready Claude skills.
+- **[obra/superpowers](https://github.com/obra/superpowers)** (MIT) — agentic skills framework and methodology.
+- **[Ponytail](https://github.com/DietrichGebert/ponytail)** (MIT) — lazy-senior-dev persona for pi.

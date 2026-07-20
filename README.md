@@ -59,6 +59,20 @@ Environment variables override settings.json:
 
 **Test:** `node --test auto-session-name.test.mjs`
 
+## Skills
+
+Skills are model-invoked capability packages following the [Agent Skills standard](https://agentskills.io). They trigger automatically when the task matches their description.
+
+| Skill | Description |
+|---|---|
+| `capture-lesson` | Record corrections and non-obvious gotchas to prevent repeated mistakes. |
+| `codebase-design` | Shared vocabulary (module, seam, depth, adapter, leverage, locality) for designing deep modules. Use when restructuring code or evaluating architecture. |
+| `codebase-navigation` | Navigate and understand unfamiliar codebases. Composes with `codebase-design`, `diagrams`, `domain-modeling`, and subagent templates (`scout`, `planner`). |
+| `diagnosing-bugs` | Diagnose hard bugs and performance regressions with a structured loop. |
+| `diagrams` | Draw Mermaid diagrams (flowchart, sequence, class, ER, state) when visualization is needed. |
+| `domain-modeling` | Build and sharpen domain terminology and ubiquitous language. Records glossary in `CONTEXT.md` and decisions in `docs/adr/`. |
+| `grilling` | Interview the user relentlessly about a plan, decision, or idea before implementation. |
+
 ## Installation
 
 ```bash
@@ -82,8 +96,12 @@ ln -sf ~/projects/pi-extensions/agents/scout.md ~/.pi/agent/agents/scout.md
 ln -sf ~/projects/pi-extensions/agents/worker.md ~/.pi/agent/agents/worker.md
 
 # Skills (model-invoked)
-ln -sf ~/projects/pi-extensions/skills/grilling ~/.pi/agent/skills/grilling
+ln -sf ~/projects/pi-extensions/skills/capture-lesson ~/.pi/agent/skills/capture-lesson
+ln -sf ~/projects/pi-extensions/skills/codebase-navigation ~/.pi/agent/skills/codebase-navigation
+ln -sf ~/projects/pi-extensions/skills/diagnosing-bugs ~/.pi/agent/skills/diagnosing-bugs
 ln -sf ~/projects/pi-extensions/skills/diagrams ~/.pi/agent/skills/diagrams
+ln -sf ~/projects/pi-extensions/skills/domain-modeling ~/.pi/agent/skills/domain-modeling
+ln -sf ~/projects/pi-extensions/skills/grilling ~/.pi/agent/skills/grilling
 
 ```
 

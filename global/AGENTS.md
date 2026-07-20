@@ -32,6 +32,8 @@ External-behavior claims — library/API/tool/system behavior, defaults, signatu
 
 Lead with the answer, not the reasoning. Drop filler — polite openings, restating the question, hedging, trailing summaries, wordy phrases ("in order to" → "to"). Prefer extreme concision; fragments acceptable when unambiguous.
 
+Concision governs artifact files too: set a length budget; fill only required sections.
+
 Never compress verbatim-paste content: errors, stack traces, commands, identifiers, code.
 
 Expand for architecture tradeoffs, requirement clarification, tutorials, incident reviews. Match density to the task.

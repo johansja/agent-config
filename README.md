@@ -88,6 +88,7 @@ ln -sf ~/projects/pi-extensions/auto-session-name.ts ~/.pi/agent/extensions/auto
 # Prompts (slash commands)
 ln -sf ~/projects/pi-extensions/prompts/mr-review.md ~/.pi/agent/prompts/mr-review.md
 ln -sf ~/projects/pi-extensions/prompts/triple-review.md ~/.pi/agent/prompts/triple-review.md
+ln -sf ~/projects/pi-extensions/prompts/wayfinder.md ~/.pi/agent/prompts/wayfinder.md
 
 # Subagent templates
 ln -sf ~/projects/pi-extensions/agents/planner.md ~/.pi/agent/agents/planner.md
@@ -95,7 +96,7 @@ ln -sf ~/projects/pi-extensions/agents/reviewer.md ~/.pi/agent/agents/reviewer.m
 ln -sf ~/projects/pi-extensions/agents/scout.md ~/.pi/agent/agents/scout.md
 ln -sf ~/projects/pi-extensions/agents/worker.md ~/.pi/agent/agents/worker.md
 
-# Skills (model-invoked)
+# Skills
 ln -sf ~/projects/pi-extensions/skills/capture-lesson ~/.pi/agent/skills/capture-lesson
 ln -sf ~/projects/pi-extensions/skills/codebase-navigation ~/.pi/agent/skills/codebase-navigation
 ln -sf ~/projects/pi-extensions/skills/diagnosing-bugs ~/.pi/agent/skills/diagnosing-bugs

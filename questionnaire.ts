@@ -302,15 +302,22 @@ export default function questionnaire(pi: ExtensionAPI) {
 							const selected = i === optionIndex;
 							const isOther = opt.isOther === true;
 							const prefix = selected ? theme.fg("accent", "> ") : "  ";
-							const color = selected ? "accent" : "text";
-							// Mark "Type something" differently when in input mode
-							if (isOther && inputMode) {
-								add(prefix + theme.fg("accent", `${i + 1}. ${opt.label}`));
-							} else {
-								add(prefix + theme.fg(color, `${i + 1}. ${opt.label}`));
+							const prefixWidth = 2; // "> " or "  "
+							const color = isOther && inputMode ? "accent" : selected ? "accent" : "text";
+							const numStr = `${i + 1}. `;
+							const labelWidth = width - prefixWidth - numStr.length;
+							const labelIndent = " ".repeat(prefixWidth + numStr.length);
+							const wrappedLabel = wrapTextWithAnsi(theme.fg(color, opt.label), labelWidth);
+							add(prefix + theme.fg(color, numStr) + wrappedLabel[0]);
+							for (let j = 1; j < wrappedLabel.length; j++) {
+								add(labelIndent + wrappedLabel[j]);
 							}
 							if (opt.description) {
-								add(`     ${theme.fg("muted", opt.description)}`);
+								const descIndent = "     ";
+								const wrappedDesc = wrapTextWithAnsi(theme.fg("muted", opt.description), width - descIndent.length);
+								for (const line of wrappedDesc) {
+									add(descIndent + line);
+								}
 							}
 						}
 					}

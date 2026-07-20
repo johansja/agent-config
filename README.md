@@ -97,3 +97,4 @@ Derivation sources for this repo — consult when improving the corresponding ar
 - **[mattpocock/skills](https://github.com/mattpocock/skills)** (MIT) — production-ready Claude skills.
 - **[obra/superpowers](https://github.com/obra/superpowers)** (MIT) — agentic skills framework and methodology.
 - **[Ponytail](https://github.com/DietrichGebert/ponytail)** (MIT) — lazy-senior-dev persona for pi.
+- **[Caveman](https://github.com/JuliusBrussee/caveman)** (MIT) — terse-prose output compression skill.

@@ -1,6 +1,6 @@
 # Pi Extensions
 
-Custom extensions for [pi](https://github.com/MarioZechner/pi-coding-agent), the coding agent harness.
+Custom extensions for [pi](https://github.com/earendil-works/pi), the coding agent harness.
 
 ## Extensions
 
@@ -40,7 +40,7 @@ Set a cheaper model in `~/.pi/agent/settings.json` (same file as `permissionGate
 ```json
 {
   "autoSessionName": {
-    "model": "bitdeerai/MiniMaxAI/MiniMax-M2.5"
+    "model": "bitdeerai/MiniMaxAI/MiniMax-M3"
   }
 }
 ```
@@ -112,7 +112,7 @@ The symlinks ensure edits in this repo are immediately reflected in pi without c
 
 Derivation sources for this repo — consult when improving the corresponding artifacts:
 
-- **[pi-mono](https://github.com/MarioZechner/pi-mono)** — pi, the coding agent these extensions target.
+- **[pi](https://github.com/earendil-works/pi)** — pi, the coding agent these extensions target.
 - **[mattpocock/skills](https://github.com/mattpocock/skills)** (MIT) — production-ready Claude skills.
 - **[obra/superpowers](https://github.com/obra/superpowers)** (MIT) — agentic skills framework and methodology.
 - **[Ponytail](https://github.com/DietrichGebert/ponytail)** (MIT) — lazy-senior-dev persona for pi.

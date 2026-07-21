@@ -27,7 +27,7 @@
  *   the permissionGate pattern in ai-permission-gate.ts):
  *     {
  *       "autoSessionName": {
- *         "model": "bitdeerai/MiniMaxAI/MiniMax-M2.5",
+ *         "model": "bitdeerai/MiniMaxAI/MiniMax-M3",
  *         "maxChars": 60,
  *         "timeout": 15000,
  *         "disabled": false
@@ -36,7 +36,7 @@
  *
  *   Environment variables (override settings.json):
  *   PI_AUTO_SESSION_NAME_MODEL     - Model for naming. Accepts "provider/modelId"
- *                                    (e.g. "bitdeerai/MiniMaxAI/MiniMax-M2.5")
+ *                                    (e.g. "bitdeerai/MiniMaxAI/MiniMax-M3")
  *                                    or a bare model id matched across providers.
  *                                    Default: the session's current model (ctx.model).
  *   PI_AUTO_SESSION_NAME_DISABLED  - "1"/"true"/"yes" disables the extension.

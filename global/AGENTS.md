@@ -14,6 +14,8 @@ Every changed line must trace to the request — no drive-by refactors, speculat
 
 High-blast-radius changes — dependency bumps, config, auth, secrets, permissions — warrant extra skepticism regardless of how few lines change.
 
+**No session-cruft in artifacts.** Drop reviewer tags (G5/G7), session-only ADR/ticket pointers ("§2 amended by AIC-3294"), and "Never-list" restatements — keep the durable technical why.
+
 ### Subtractive Bias
 
 Within the scope of your task, prefer removal over addition. For code: remove dead code, unused imports, and abandoned stubs — abandoned code does not ship; simplify, don't add indirection to preserve unused structure. For docs, configs, and architecture: when asked to improve, first ask what should be removed or merged before adding new sections, pages, abstractions, or components. Addition is the default failure mode, not the default solution.

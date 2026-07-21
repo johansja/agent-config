@@ -128,7 +128,25 @@ export default function questionnaire(pi: ExtensionAPI) {
 				// Helpers
 				function refresh() {
 					cachedLines = undefined;
+					updateStatus();
 					tui.requestRender();
+				}
+
+				// Reflect current mode + progress in the status pill (TUI footer + cmux sidebar + OSC).
+				// Glyph swaps per mode; count morphs to answered/total. Color stays accent; the
+				// glyph carries mode. notifyBody (herdr label) is set once at blockStart and unchanged.
+				function updateStatus() {
+					const answered = answers.size;
+					const total = questions.length;
+					let icon: string;
+					if (inputMode) {
+						icon = "✍️";
+					} else if (currentTab === questions.length) {
+						icon = allAnswered() ? "✓" : "⚠️";
+					} else {
+						icon = "❓";
+					}
+					ctx.ui.setStatus("questionnaire", theme.fg("accent", `${icon} ${answered}/${total}`));
 				}
 
 				function submit(cancelled: boolean) {
@@ -377,6 +395,9 @@ export default function questionnaire(pi: ExtensionAPI) {
 					cachedLines = lines;
 					return lines;
 				}
+
+				// Initial pill reflects "browsing, 0 answered" before first keypress.
+				updateStatus();
 
 				return {
 					render,

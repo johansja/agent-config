@@ -55,6 +55,16 @@ import { blockStart, blockEnd } from "./shared/notify.ts";
 const RISK_LEVELS = ["safe", "low", "medium", "high"] as const;
 type RiskLevel = (typeof RISK_LEVELS)[number];
 
+// Risk levels that reach a user-facing confirm prompt (safe is auto-allowed).
+// Icons carry severity at a glance across prompt title, notify body, and status.
+type ConfirmRisk = Exclude<RiskLevel, "safe"> | "unknown";
+const RISK_ICON: Record<ConfirmRisk, string> = {
+	low: "🟡",
+	medium: "🟠",
+	high: "🔴",
+	unknown: "⚪",
+};
+
 interface Verdict {
 	risk: RiskLevel;
 	reason: string;
@@ -384,7 +394,7 @@ async function classifyCommand(
 }
 
 interface ConfirmOptions {
-	risk: RiskLevel | "unknown";
+	risk: ConfirmRisk;
 	notifyBody: string;
 	promptTitle: string;
 	promptBody: string;
@@ -405,14 +415,15 @@ async function confirmWithUser(
 	blockLevel: RiskLevel,
 	opts: ConfirmOptions,
 ): Promise<{ block: true; reason: string } | undefined> {
-	blockStart(pi, ctx, opts.notifyBody, {
+	const icon = RISK_ICON[opts.risk];
+	blockStart(pi, ctx, `${icon} ${opts.notifyBody}`, {
 		key: "ai-permission-gate",
-		text: "🔒 awaiting input",
+		text: `${icon} awaiting input`,
 		color: "accent",
 	});
 	try {
 		const choice = await ctx.ui.select(
-			`${opts.promptTitle}\n\n  ${truncateCommand(command)}\n\n${opts.promptBody}\n\nAllow?`,
+			`${icon} ${opts.promptTitle}\n\n  ${truncateCommand(command)}\n\n${opts.promptBody}\n\nAllow?`,
 			["Yes", "No"],
 		);
 		if (choice !== "Yes") {

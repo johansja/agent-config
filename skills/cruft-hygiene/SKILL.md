@@ -1,5 +1,5 @@
 ---
-name: doc-cruft-hygiene
+name: cruft-hygiene
 description: Audit durable artifacts — docs (plans, ADRs, designs, READMEs) and code comments — for session-cruft before finalize or merge. Use when writing, revising, or reviewing such artifacts — especially after a grill/review round or a design pivot. Cuts process provenance; keeps the durable why.
 ---
 

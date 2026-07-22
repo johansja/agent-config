@@ -18,7 +18,7 @@ High-blast-radius changes — dependency bumps, config, auth, secrets, permissio
 
 ### Subtractive Bias
 
-Within the scope of your task, prefer removal over addition. For code: remove dead code, unused imports, and abandoned stubs — abandoned code does not ship; simplify, don't add indirection to preserve unused structure. For docs, configs, and architecture: when asked to improve, first ask what should be removed or merged before adding new sections, pages, abstractions, or components. Addition is the default failure mode, not the default solution.
+Within the scope of your task, prefer removal over addition — strip accidental complexity, preserve essential (Brooks). For code: remove dead code, unused imports, and abandoned stubs — abandoned code does not ship; simplify, don't add indirection to preserve unused structure. For docs, configs, and architecture: when asked to improve, first ask what should be removed or merged before adding new sections, pages, abstractions, or components. Addition is the default failure mode, not the default solution.
 
 ### MECE Discipline
 

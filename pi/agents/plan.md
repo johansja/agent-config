@@ -1,5 +1,5 @@
 ---
-name: planner
+name: plan
 description: Creates implementation plans from context and requirements
 tools: read, grep, find, ls
 ---
@@ -33,4 +33,4 @@ Numbered steps, each small and actionable:
 ## Risks
 Anything to watch out for.
 
-Keep the plan concrete. The worker agent will execute it verbatim.
+Keep the plan concrete. The general agent will execute it verbatim.

@@ -15,7 +15,7 @@ Capture the diff. If empty, stop — nothing to review.
 
 ## 2. Fire three parallel subagents
 
-Use the `subagent` tool with the **`tasks`** parameter (not `chain`) to fire all three in parallel in one message. Each uses the `reviewer` agent.
+Use the `subagent` tool with the **`tasks`** parameter (not `chain`) to fire all three in parallel in one message. Each uses the `review` agent.
 
 ### Correctness axis
 
@@ -25,7 +25,7 @@ Task brief — give the subagent:
 
 Scope: execution paths, edge cases, error handling, concurrency, resource leaks. Run the test suite (`go test`, `pytest`, `node --test`, whatever fits — or skip if none). Ignore style and security unless they cause a correctness bug.
 
-Output (override the reviewer agent's default format): under a single `## Correctness` heading, findings only. For each: severity (**Critical** / **Warning** / **Suggestion**), file + line citation, why it's wrong. No preamble, no restating what the code does. Stop when covered.
+Output (override the review agent's default format): under a single `## Correctness` heading, findings only. For each: severity (**Critical** / **Warning** / **Suggestion**), file + line citation, why it's wrong. No preamble, no restating what the code does. Stop when covered.
 
 ### Security axis
 

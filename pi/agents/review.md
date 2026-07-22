@@ -1,5 +1,5 @@
 ---
-name: reviewer
+name: review
 description: Review specialist for quality and security analysis
 tools: read, grep, find, ls, bash
 model: bitdeerai/MiniMaxAI/MiniMax-M3

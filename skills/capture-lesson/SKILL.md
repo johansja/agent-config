@@ -7,6 +7,6 @@ Surface every lesson as a diff; wait for "yes" before writing. First occurrence 
 
 Before proposing, grep the target file and refine an existing heading over adding a new one. Write reusable rules, not in-flight task state.
 
-Scope by failure mode, not topic: project AGENTS.md is the default (repo conventions, tooling, env, domain); `pi-extensions/global/AGENTS.md` is for agent-behavior failure modes recurring across codebases (e.g. "agent claims tests pass without running them").
+Scope by failure mode, not topic: project AGENTS.md is the default (repo conventions, tooling, env, domain); `agent-config/global/AGENTS.md` is for agent-behavior failure modes recurring across codebases (e.g. "agent claims tests pass without running them").
 
 Show the target file, the diff, and any related lines grep found. One or two concrete lines — commands, env, gotchas — no platitudes. More than 15 under one heading → propose consolidation. Contradiction → retire the stale line. Rejected proposals may re-surface; no rejection log.

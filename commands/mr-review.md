@@ -22,7 +22,7 @@ The **spec** for an MR is, in priority order:
 
 ## 4. Fire two parallel subagents
 
-Use the `subagent` tool with the **`tasks`** parameter (not `chain`) to fire both in parallel in one message. Each uses the `reviewer` agent.
+Use the `subagent` tool with the **`tasks`** parameter (not `chain`) to fire both in parallel in one message. Each uses the `review` agent.
 
 ### Standards axis
 
@@ -46,7 +46,7 @@ Fowler smell baseline — each is a judgement call, never a hard violation. A do
 - **Middle Man** — class/function that mostly delegates onward. → cut it.
 - **Refused Bequest** — subclass ignoring most of what it inherits. → drop inheritance, use composition.
 
-Output (override the reviewer agent's default format): under a single `## Standards` heading, list per-file findings. For each: cite the violated standard (file + rule) or name the smell, quote the hunk. Distinguish hard violations (documented-standard breach) from judgement calls (smells). Skip what tooling enforces. Under 400 words.
+Output (override the review agent's default format): under a single `## Standards` heading, list per-file findings. For each: cite the violated standard (file + rule) or name the smell, quote the hunk. Distinguish hard violations (documented-standard breach) from judgement calls (smells). Skip what tooling enforces. Under 400 words.
 
 ### Spec axis
 
@@ -54,7 +54,7 @@ Task brief — give the subagent:
 - The full diff from step 2
 - The spec source from step 3 (MR description or linked issue body)
 
-Output (override the reviewer agent's default format): under a single `## Spec` heading, three categories:
+Output (override the review agent's default format): under a single `## Spec` heading, three categories:
 - (a) Requirements from the spec that are missing or partial in the diff
 - (b) Behaviour in the diff not asked for in the spec (scope creep)
 - (c) Requirements that look implemented but wrong

@@ -47,7 +47,7 @@
  *   PI_AUTO_SESSION_NAME_TIMEOUT   - LLM call timeout in ms (default 15000).
  *
  * Install:
- *   ln -sf ~/projects/pi-extensions/auto-session-name.ts \
+ *   ln -sf ~/projects/agent-config/pi/auto-session-name.ts \
  *      ~/.pi/agent/extensions/auto-session-name.ts
  *
  * Test:

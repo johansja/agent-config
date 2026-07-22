@@ -13,7 +13,7 @@ description: Navigate, explore, and understand an unfamiliar codebase. Use when 
    - Architecture critique → `/skill:codebase-design`
    - Visualize → `/skill:diagrams`
    - Domain confusion → `/skill:domain-modeling`
-   - Plan changes → dispatch `planner` with findings + requirements
+   - Plan changes → dispatch `plan` with findings + requirements
 
 3. **Deepen** if gaps remain: grep cross-refs, trace data flow, check tests.
 
@@ -29,5 +29,5 @@ description: Navigate, explore, and understand an unfamiliar codebase. Use when 
 
 **Rules:**
 - Reuse scout's file list; don't re-read.
-- Hand off to `planner`; don't duplicate.
+- Hand off to `plan`; don't duplicate.
 - `codebase-design` vocabulary only when asked or relevant.

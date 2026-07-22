@@ -14,7 +14,7 @@ Every changed line must trace to the request — no drive-by refactors, speculat
 
 High-blast-radius changes — dependency bumps, config, auth, secrets, permissions — warrant extra skepticism regardless of how few lines change.
 
-**No session-cruft in artifacts.** Cut process provenance — reviewer tags (G5/G7), skill-session refs ("Q5 correction", "Grill-settled, N branches"), decision date stamps ("Resolved 2026-07-21"), session-only ADR/ticket pointer phrases ("§N amended by TICKET-ID"), and "Never-list" restatements — keep the durable technical why. If a marker only means something to someone in the session that produced it, cut it; the decision stays, the when/how it was reached goes. Before finalizing a durable doc (plan, ADR, design doc, README), run the `cruft-hygiene` skill audit; `/cruft-review <file>` is the pre-merge gate.
+**No session-cruft in artifacts.** Cut process provenance — reviewer tags (G5/G7), skill-session refs ("Q5 correction", "Grill-settled, N branches"), decision date stamps ("Resolved 2026-07-21"), session-only ADR/ticket pointer phrases ("§N amended by TICKET-ID"), and "Never-list" restatements — keep the durable technical why. If a marker only means something to someone in the session that produced it, cut it; the decision stays, the when/how it was reached goes. Before finalizing a durable artifact (plan, ADR, design doc, README, code comments), run the `cruft-hygiene` skill audit; `/cruft-review <file>` is the pre-merge gate.
 
 ### Subtractive Bias
 

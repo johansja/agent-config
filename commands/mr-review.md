@@ -22,7 +22,7 @@ The **spec** for an MR is, in priority order:
 
 ## 4. Fire two parallel subagents
 
-Use the `subagent` tool with the **`tasks`** parameter (not `chain`) to fire both in parallel in one message. Each uses the `review` agent.
+Fire both in parallel in one message. Each dispatches a `review` subagent.
 
 ### Standards axis
 

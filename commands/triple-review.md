@@ -15,7 +15,7 @@ Capture the diff. If empty, stop — nothing to review.
 
 ## 2. Fire three parallel subagents
 
-Use the `subagent` tool with the **`tasks`** parameter (not `chain`) to fire all three in parallel in one message. Each uses the `review` agent.
+Fire all three in parallel in one message. Each dispatches a `review` subagent.
 
 ### Correctness axis
 

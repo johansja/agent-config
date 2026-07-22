@@ -155,6 +155,7 @@ ln -sf "$PWD/global/AGENTS.md" ~/.config/opencode/AGENTS.md
 
 # Commands (shared — symlinked into BOTH ~/.pi/agent/prompts/ and ~/.config/opencode/commands/)
 ln -sf "$PWD/commands/cruft-review.md" ~/.pi/agent/prompts/cruft-review.md
+ln -sf "$PWD/commands/fix-hard-violations.md" ~/.pi/agent/prompts/fix-hard-violations.md
 ln -sf "$PWD/commands/grill-with-docs.md" ~/.pi/agent/prompts/grill-with-docs.md
 ln -sf "$PWD/commands/improve-architecture.md" ~/.pi/agent/prompts/improve-architecture.md
 ln -sf "$PWD/commands/mr-review.md" ~/.pi/agent/prompts/mr-review.md
@@ -162,6 +163,7 @@ ln -sf "$PWD/commands/to-spec.md" ~/.pi/agent/prompts/to-spec.md
 ln -sf "$PWD/commands/triple-review.md" ~/.pi/agent/prompts/triple-review.md
 ln -sf "$PWD/commands/wayfinder.md" ~/.pi/agent/prompts/wayfinder.md
 ln -sf "$PWD/commands/cruft-review.md" ~/.config/opencode/commands/cruft-review.md
+ln -sf "$PWD/commands/fix-hard-violations.md" ~/.config/opencode/commands/fix-hard-violations.md
 ln -sf "$PWD/commands/grill-with-docs.md" ~/.config/opencode/commands/grill-with-docs.md
 ln -sf "$PWD/commands/improve-architecture.md" ~/.config/opencode/commands/improve-architecture.md
 ln -sf "$PWD/commands/mr-review.md" ~/.config/opencode/commands/mr-review.md

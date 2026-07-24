@@ -3,9 +3,9 @@ description: Plan a huge chunk of work (>1 agent session) as a shared map of dec
 argument-hint: "[<map-ref-or-loose-idea>]"
 ---
 
-User input: ${@:-(none — ask whether to chart a new map from a loose idea, or work an existing map by ref)}
+User input: $ARGUMENTS
 
-A map ref (URL/number) → **Work**. Prose → **Chart**. Never resolve more than one ticket per session (except `research`).
+If empty, ask whether to chart a new map from a loose idea, or work an existing map by ref. A map ref (URL/number) → **Work**; prose → **Chart**. Never resolve more than one ticket per session (except `research`).
 
 Too big for one session. Wayfinding charts a shared map on the issue tracker, then works decision tickets one at a time until the route is clear. A ticket resolves a *decision*, not a slice of a build. **Plan, don't do** — the pull to just do the work signals you've reached the edge of the map; override only if the map's Notes say so. Refer to every map/ticket by title, not bare id; the id rides inside a link.
 

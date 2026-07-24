@@ -3,7 +3,7 @@ description: Looping apply-layer over triple-review. Enforceable findings loop t
 argument-hint: "[files|commits|range]"
 ---
 
-Apply-layer over `/triple-review $@` in the main session (the `review` subagent can't edit). Smell/hard-violation distinction: see `/triple-review` Style axis.
+Apply-layer over `/triple-review $ARGUMENTS` in the main session (the `review` subagent can't edit). Smell/hard-violation distinction: see `/triple-review` Style axis.
 
 ## Classify
 
@@ -17,7 +17,7 @@ Apply-layer over `/triple-review $@` in the main session (the `review` subagent 
 
 ## Loop (max 3 rounds)
 
-`/triple-review $@` → classify → apply enforceable fixes only (one finding → one edit, no adjacent refactors) → run tests once if correctness fixes applied → defer everything else.
+`/triple-review $ARGUMENTS` → classify → apply enforceable fixes only (one finding → one edit, no adjacent refactors) → run tests once if correctness fixes applied → defer everything else.
 
 ## Stop
 

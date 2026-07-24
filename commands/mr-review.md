@@ -3,15 +3,19 @@ description: Two-axis review of a GitLab MR — Standards and Spec run as parall
 argument-hint: "<mr> [--post]"
 ---
 
-Review GitLab merge request **$1** along two axes, in parallel, without merging. The two axes are deliberately separate — a change can pass one and fail the other.
+Review the given GitLab merge request along two axes, in parallel, without merging. The two axes are deliberately separate — a change can pass one and fail the other.
+
+## 0. Parse args
+
+From `$ARGUMENTS`: the MR id is the first token (digits or URL); set `POST=true` if `--post` appears anywhere. Use `<MR-ID>` (the parsed id, not the raw arg string) in every `glab` call below.
 
 ## 1. Resolve the MR
 
-Run `glab mr view $1` to fetch title, description, author, source branch, and commit list. If this fails (bad MR id, no auth, not a GitLab repo), stop and report the error — do not proceed to review.
+Run `glab mr view <MR-ID>` to fetch title, description, author, source branch, and commit list. If this fails (bad MR id, no auth, or not a GitLab repo), stop and report the error — do not proceed to review.
 
 ## 2. Capture the diff
 
-Run `glab mr diff $1`. If the diff is empty, stop — nothing to review.
+Run `glab mr diff <MR-ID>`. If the diff is empty, stop — nothing to review.
 
 ## 3. Identify the spec source
 
@@ -69,9 +73,9 @@ Present both reports in this session under `## Standards` and `## Spec`. **Do no
 
 By default, **do not post anything to the MR.** Reports stay in this session.
 
-If the user passed `--post` (check `${@:2}`) or asks to post after seeing the local reports, post **two separate comments** to the MR — one per axis — via:
+If `POST=true` (the user passed `--post`, or asks to post after seeing the local reports), post **two separate comments** to the MR — one per axis — via:
 ```
-glab mr note $1 -m "<standards-report>"
-glab mr note $1 -m "<spec-report>"
+glab mr note <MR-ID> -m "<standards-report>"
+glab mr note <MR-ID> -m "<spec-report>"
 ```
 Two comments, not one. The don't-merge discipline is the point.

@@ -3,79 +3,59 @@ description: Two-axis review of a GitLab MR — Standards and Spec run as parall
 argument-hint: "<mr> [--post]"
 ---
 
-Review the given GitLab merge request along two axes, in parallel, without merging. The two axes are deliberately separate — a change can pass one and fail the other.
+Review the given GitLab MR along two axes, in parallel, without merging. The axes are deliberately separate — a change can pass one and fail the other.
 
 ## 0. Parse args
 
-From `$ARGUMENTS`: the MR id is the first token (digits or URL); set `POST=true` if `--post` appears anywhere. Use `<MR-ID>` (the parsed id, not the raw arg string) in every `glab` call below.
+From `$ARGUMENTS`: MR id = first token (digits or URL); `POST=true` if `--post` appears anywhere. Use `<MR-ID>` (parsed id) in every `glab` call.
 
-## 1. Resolve the MR
+## 1-2. Resolve + diff
 
-Run `glab mr view <MR-ID>` to fetch title, description, author, source branch, and commit list. If this fails (bad MR id, no auth, or not a GitLab repo), stop and report the error — do not proceed to review.
+`glab mr view <MR-ID>` (title, description, author, source branch, commits) and `glab mr diff <MR-ID>`. If either fails or the diff is empty, stop and report.
 
-## 2. Capture the diff
+## 3. Spec source (priority)
 
-Run `glab mr diff <MR-ID>`. If the diff is empty, stop — nothing to review.
+1. MR description.
+2. Linked issue (`Closes #N` / `Resolves #N`) via `glab issue view <N>`.
+3. If both absent/empty: Spec axis outputs "no spec available" and skips — do not invent one from the diff.
 
-## 3. Identify the spec source
-
-The **spec** for an MR is, in priority order:
-1. The MR description (what the author said they'd change).
-2. A linked issue in the description (`Closes #N`, `Resolves #N`) — fetch via `glab issue view <N>`.
-3. If both are absent or empty, the **Spec axis** reports "no spec available" and skips. Do not invent a spec from the diff.
-
-## 4. Fire two parallel subagents
-
-Fire both in parallel in one message. Each dispatches a `review` subagent.
+## 4. Fire two `review` subagents in parallel
 
 ### Standards axis
 
-Task brief — give the subagent:
-- The full diff from step 2
-- The commit list from step 1
-- Any repo standards files: read `AGENTS.md`, `CODING_STANDARDS.md`, `CONTRIBUTING.md` at the repo root if present, and include their coding-rule sections
-- The Fowler smell baseline below, pasted in full
+Brief: full diff + commit list + repo standards files (`AGENTS.md`, `CODING_STANDARDS.md`, `CONTRIBUTING.md` if present) + the Fowler baseline below.
 
-Fowler smell baseline — each is a judgement call, never a hard violation. A documented repo standard always overrides. Skip anything tooling already enforces.
-- **Mysterious Name** — function/variable/type whose name doesn't reveal what it does. → rename.
-- **Duplicated Code** — same logic shape in multiple places in the diff. → extract.
-- **Feature Envy** — method reaching into another object's data more than its own. → move it.
-- **Data Clumps** — same few fields/params travelling together. → bundle into a type.
-- **Primitive Obsession** — primitive standing in for a domain concept. → give it a type.
-- **Repeated Switches** — same switch/if-cascade on the same type across the diff. → polymorphism or shared map.
-- **Shotgun Surgery** — one logical change forces scattered edits across many files. → gather into one module.
-- **Divergent Change** — one file edited for several unrelated reasons. → split.
-- **Speculative Generality** — abstraction/params/hooks for needs the spec doesn't have. → delete.
-- **Message Chains** — long `a.b().c().d()` navigation. → hide behind one method.
-- **Middle Man** — class/function that mostly delegates onward. → cut it.
-- **Refused Bequest** — subclass ignoring most of what it inherits. → drop inheritance, use composition.
+Fowler smells — judgement calls, never hard violations; a documented standard overrides; skip anything tooling enforces:
+- **Mysterious Name** → rename.
+- **Duplicated Code** (same shape across the diff) → extract.
+- **Feature Envy** (method reaches into another's data more than its own) → move.
+- **Data Clumps** (same fields/params travelling together) → bundle into a type.
+- **Primitive Obsession** → give it a type.
+- **Repeated Switches** (same switch/if-cascade across the diff) → polymorphism or shared map.
+- **Shotgun Surgery** (one change, scattered edits) → gather.
+- **Divergent Change** (one file, several unrelated reasons) → split.
+- **Speculative Generality** → delete.
+- **Message Chains** (`a.b().c().d()`) → hide behind one method.
+- **Middle Man** (mostly delegates) → cut.
+- **Refused Bequest** → drop inheritance, use composition.
 
-Output (override the review agent's default format): under a single `## Standards` heading, list per-file findings. For each: cite the violated standard (file + rule) or name the smell, quote the hunk. Distinguish hard violations (documented-standard breach) from judgement calls (smells). Skip what tooling enforces. Under 400 words.
+Output (override review agent's default): one `## Standards` heading, per-file findings, each citing the violated standard (file+rule) or naming the smell, quoting the hunk. Distinguish hard violations (documented-standard breach) from judgement calls. Skip tooling-enforced. <400 words.
 
 ### Spec axis
 
-Task brief — give the subagent:
-- The full diff from step 2
-- The spec source from step 3 (MR description or linked issue body)
+Brief: full diff + spec source from step 3.
 
-Output (override the review agent's default format): under a single `## Spec` heading, three categories:
-- (a) Requirements from the spec that are missing or partial in the diff
-- (b) Behaviour in the diff not asked for in the spec (scope creep)
-- (c) Requirements that look implemented but wrong
-
-Quote the spec line for each finding. Under 400 words. If no spec, output only "no spec available" and stop.
+Output (override review agent's default): one `## Spec` heading, three categories — (a) spec requirements missing/partial in the diff, (b) diff behaviour not in the spec (scope creep), (c) requirements implemented wrong. Quote the spec line per finding. <400 words. If no spec, output only "no spec available."
 
 ## 5. Aggregate locally
 
-Present both reports in this session under `## Standards` and `## Spec`. **Do not merge, do not rerank.** End with one summary line per axis: total findings + worst issue (if any). Do not pick a single winner across axes.
+Present both reports under `## Standards` and `## Spec`. **Do not merge or rerank** across axes. End with one summary line per axis: total findings + worst issue (if any).
 
 ## 6. Posting — local by default
 
-By default, **do not post anything to the MR.** Reports stay in this session.
-
-If `POST=true` (the user passed `--post`, or asks to post after seeing the local reports), post **two separate comments** to the MR — one per axis — via:
+Default: post nothing; reports stay in session. If `POST=true` (or the user asks after seeing local reports), post **two separate MR comments**, one per axis:
 ```
 glab mr note <MR-ID> -m "<standards-report>"
 glab mr note <MR-ID> -m "<spec-report>"
 ```
-Two comments, not one. The don't-merge discipline is the point.
+Two comments, not one — the don't-merge discipline is the point.

@@ -49,7 +49,7 @@ Output (override review agent's default): one `## Spec` heading, three categorie
 
 ## 5. Aggregate locally
 
-Present both reports under `## Standards` and `## Spec`. **Do not merge or rerank** across axes. End with one summary line per axis: total findings + worst issue (if any).
+Lead with `## Changes` — one or two lines: files touched + net behaviour. Then both reports under `## Standards` and `## Spec`. **Do not merge or rerank** findings across axes. End each axis with one line: total findings + worst issue (if any). Final `## Verdict` — single line, `PASS` or `FAIL`: FAIL if any Standards hard violation or any Spec finding, else PASS; one short clause of reason. Verdict stays local — never posted (posting would merge the axes).
 
 ## 6. Posting — local by default
 

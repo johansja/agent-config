@@ -150,10 +150,50 @@ function clearStatus(ctx: ExtensionContext | undefined, key: string): void {
 }
 
 /**
+ * Signal Orca the agent is blocked on user input (or released). No-op outside
+ * an Orca pane; fire-and-forget with a 1s abort — same contract as cmux/herdr.
+ * Why: Pi's questionnaire/ai-permission-gate are not in Orca's ask_user_question
+ * recognize-list, so a synthetic ask_user_question tool_call drives Orca's pi
+ * state machine working → blocked; tool_execution_end drives blocked → working.
+ * Mirrors orca-agent-status.ts's POST shape to /hook/pi.
+ */
+function postOrcaBlocked(active: boolean, label?: string): void {
+	const paneKey = process.env.ORCA_PANE_KEY;
+	const port = process.env.ORCA_AGENT_HOOK_PORT;
+	const token = process.env.ORCA_AGENT_HOOK_TOKEN;
+	if (!paneKey || !port || !token) return;
+	const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+	const timeout = setTimeout(() => controller?.abort(), 1000);
+	if (typeof timeout.unref === "function") timeout.unref();
+	fetch(`http://127.0.0.1:${port}/hook/pi`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			"X-Orca-Agent-Hook-Token": token,
+		},
+		body: JSON.stringify({
+			paneKey,
+			launchToken: process.env.ORCA_AGENT_LAUNCH_TOKEN || "",
+			tabId: process.env.ORCA_TAB_ID || "",
+			worktreeId: process.env.ORCA_WORKTREE_ID || "",
+			env: process.env.ORCA_AGENT_HOOK_ENV || "",
+			version: process.env.ORCA_AGENT_HOOK_VERSION || "",
+			payload: {
+				hook_event_name: active ? "tool_call" : "tool_execution_end",
+				tool_name: "ask_user_question",
+				...(active && label ? { tool_input: { label } } : {}),
+			},
+		}),
+		...(controller ? { signal: controller.signal } : {}),
+	}).then(() => {}, () => {}).finally(() => clearTimeout(timeout));
+}
+
+/**
  * Begin a user-input block: fire the terminal notification, emit
- * herdr:blocked active:true, set the cmux sidebar pill, and set the TUI
- * status indicator — all from one call, so no transport can be forgotten.
- * Caller MUST call blockEnd exactly once (in a finally clause) to release them.
+ * herdr:blocked active:true, signal Orca's blocked state, set the cmux
+ * sidebar pill, and set the TUI status indicator — all from one call, so
+ * no transport can be forgotten. Caller MUST call blockEnd exactly once
+ * (in a finally clause) to release them.
  */
 export function blockStart(
 	pi: ExtensionAPI,
@@ -163,15 +203,16 @@ export function blockStart(
 ): void {
 	notify("Pi", label);
 	emitBlocked(pi, true, label);
+	postOrcaBlocked(true, label);
 	if (status) cmuxSetStatus(status);
 	if (ctx && status) setStatus(ctx, status);
 }
 
 /**
- * End a user-input block: emit herdr:blocked active:false, clear the cmux
- * sidebar pill, and clear the TUI status indicator if a status key was given.
- * Pair with blockStart in try/finally or .finally() so the state is always
- * released on submit, cancel, or error.
+ * End a user-input block: emit herdr:blocked active:false, release Orca's
+ * blocked state, clear the cmux sidebar pill, and clear the TUI status
+ * indicator if a status key was given. Pair with blockStart in try/finally
+ * or .finally() so the state is always released on submit, cancel, or error.
  */
 export function blockEnd(
 	pi: ExtensionAPI,
@@ -179,6 +220,7 @@ export function blockEnd(
 	statusKey?: string,
 ): void {
 	emitBlocked(pi, false);
+	postOrcaBlocked(false);
 	if (statusKey) cmuxClearStatus(statusKey);
 	if (ctx && statusKey) clearStatus(ctx, statusKey);
 }

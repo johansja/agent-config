@@ -283,9 +283,9 @@ describe("CWD-aware system prompt content", () => {
 		assert.match(extensionSource, /if \(!cwd\)\s*\{\s*cwd = process\.cwd\(\)/);
 	});
 
-	it("uses completeSimple from @earendil-works/pi-ai for classification", () => {
+	it("uses completeSimple from @earendil-works/pi-ai/compat for classification", () => {
 		assert.match(extensionSource, /completeSimple/);
-		assert.match(extensionSource, /from "@earendil-works\/pi-ai"/);
+		assert.match(extensionSource, /from "@earendil-works\/pi-ai\/compat"/);
 	});
 
 	it("does NOT use createAgentSession (heavier than needed)", () => {

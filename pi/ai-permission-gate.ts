@@ -46,7 +46,7 @@ import {
 	type ExtensionContext,
 	type ModelRegistry,
 } from "@earendil-works/pi-coding-agent";
-import { completeSimple, type Model, type Api, type Context } from "@earendil-works/pi-ai";
+import { completeSimple, type Model, type Api, type Context } from "@earendil-works/pi-ai/compat";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { blockStart, blockEnd } from "./shared/notify.ts";

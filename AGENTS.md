@@ -18,7 +18,7 @@ The `pi/shared/` directory must be symlinked alongside the extensions — jiti r
 ## Development Guidelines (pi extensions)
 
 - **Language:** TypeScript, targeting Node.js (pi uses tsx for runtime compilation).
-- **Imports:** Use `@earendil-works/pi-coding-agent` for the ExtensionAPI type and helpers. Use `@earendil-works/pi-ai` and `typebox` where needed (as ai-permission-gate and questionnaire do).
+- **Imports:** Use `@earendil-works/pi-coding-agent` for the ExtensionAPI type and helpers. Use `@earendil-works/pi-ai/compat` for the legacy `completeSimple`/`stream` API and `typebox` for schemas, where needed (as ai-permission-gate and questionnaire do).
 - **No build step:** pi loads `.ts` files directly via tsx. Do not add a build/compile step.
 - **No npm/pnpm:** This is not a Node.js package. Dependencies are pi's own dependencies (available at runtime).
 - **Symlink deployment:** Deployed via `ln -sf` into `~/.pi/agent/extensions/` (extensions + the `shared/` symlink), `~/.pi/agent/agents/`, `~/.pi/agent/skills/`, `~/.pi/agent/AGENTS.md` (canonical global rules), and both `~/.pi/agent/prompts/` + `~/.config/opencode/commands/` (shared commands). See `README.md` for full command list.

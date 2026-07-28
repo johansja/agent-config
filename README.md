@@ -20,7 +20,7 @@ agent-config/
 │   └── agents/                # subagent templates
 └── opencode/                  # opencode-specific artifacts
     └── agents/
-        └── review.md          # cross-model review subagent (Kimi-K2.6)
+        └── review.md          # cross-model review subagent
 ```
 
 `.pi/workflow/` (pi's live session state) rides with the repo but is gitignored and not deployed.
@@ -86,7 +86,7 @@ Environment variables override settings.json:
 
 | Subagent | Description |
 |---|---|
-| `review` | Cross-model plan/code reviewer (Kimi-K2.6). Reads files, traces execution paths, runs tests. Reports by severity (Critical / Important / Minor), does NOT fix. Verdict up front: APPROVED or NEEDS WORK. Use after planning to critique the plan, and after implementation to verify code. |
+| `review` | Cross-model plan/code reviewer. Reads files, traces execution paths, runs tests. Reports by severity (Critical / Important / Minor), does NOT fix. Verdict up front: APPROVED or NEEDS WORK. Use after planning to critique the plan, and after implementation to verify code. |
 
 ## Skills (shared)
 

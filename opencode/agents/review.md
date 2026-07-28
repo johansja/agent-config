@@ -1,7 +1,7 @@
 ---
 description: Reviews plans and code for bugs, security, edge cases, and behavioral changes. Reads files, traces execution paths, runs tests. Reports by severity, does NOT fix. Verdict: APPROVED or NEEDS WORK. Cannot edit files. Use after planning to critique the plan, and after implementation to verify code.
 mode: subagent
-model: BitdeerAI/moonshotai/Kimi-K2.6
+model: BitdeerAI/zai-org/GLM-5.2
 permission:
   edit: deny
 ---

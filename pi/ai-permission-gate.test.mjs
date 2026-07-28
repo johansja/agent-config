@@ -1,78 +1,37 @@
 /**
- * Tests for the CWD-aware permission gate pure functions.
+ * Tests for the AI Permission Gate extension.
  *
- * Run with: node --test ai-permission-gate.test.mjs
+ * Run with: node --test pi/ai-permission-gate.test.mjs
  *
- * These tests cover riskLevelIndex(), stripCodeFences(), parseVerdict(),
- * and the CWD-aware system prompt content — the deterministic logic that
- * doesn't require an LLM call.
+ * Two layers:
+ *   - Pure helpers imported from the real extension module via jiti (same TS
+ *     loader pi uses at runtime). Covers parseVerdict / riskLevelIndex /
+ *     truncateCommand / stripCodeFences invariants.
+ *   - Source-shape assertions for config/env plumbing and the CWD-aware system
+ *     prompt, plus behavioral emit-pairing for herdr:blocked.
  */
 
+import { createJiti } from "/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/jiti/lib/jiti.mjs";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-// ---------------------------------------------------------------------------
-// Inline copies of the pure functions under test.
-// We copy them here rather than importing because the extension is a .ts file
-// with side effects (spawns child processes). Keeping tests self-contained
-// also makes it obvious what's being tested.
-// ---------------------------------------------------------------------------
+const PI = "/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent";
 
-const RISK_LEVELS = ["safe", "low", "medium", "high"];
+const jiti = createJiti(import.meta.url, {
+	alias: {
+		"@earendil-works/pi-coding-agent": `${PI}/dist/index.js`,
+		"@earendil-works/pi-ai": `${PI}/node_modules/@earendil-works/pi-ai/dist/index.js`,
+	},
+});
 
-function riskLevelIndex(level) {
-	return RISK_LEVELS.indexOf(level);
-}
-
-function stripCodeFences(raw) {
-	let text = raw.trim();
-	text = text.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
-	return text.trim();
-}
-
-function parseVerdict(raw) {
-	const cleaned = stripCodeFences(raw);
-	try {
-		const parsed = JSON.parse(cleaned);
-		if (
-			parsed &&
-			typeof parsed.risk === "string" &&
-			RISK_LEVELS.includes(parsed.risk) &&
-			typeof parsed.reason === "string"
-		) {
-			return parsed;
-		}
-	} catch {
-		const jsonMatch = cleaned.match(/\{[^{}]*"risk"[^{}]*"reason"[^{}]*\}/);
-		if (jsonMatch) {
-			try {
-				const parsed = JSON.parse(jsonMatch[0]);
-				if (
-					parsed &&
-					typeof parsed.risk === "string" &&
-					RISK_LEVELS.includes(parsed.risk) &&
-					typeof parsed.reason === "string"
-				) {
-					return parsed;
-				}
-			} catch {
-				// fall through
-			}
-		}
-	}
-	return { risk: "medium", reason: "Could not parse LLM verdict" };
-}
-
-function truncateCommand(command, maxLines = 5) {
-	const lines = command.split("\n");
-	if (lines.length <= maxLines) return command;
-	return lines.slice(0, maxLines).join("\n") + "\n…";
-}
+const mod = await jiti.import("./ai-permission-gate.ts");
+const extension = mod.default;
+const { RISK_LEVELS, riskLevelIndex, truncateCommand, stripCodeFences, parseVerdict } = mod;
 
 // ---------------------------------------------------------------------------
-// Read the source file for consistency and content tests
+// Read the source file for source-shape assertions
 // ---------------------------------------------------------------------------
 
 const extensionSource = fs.readFileSync(
@@ -81,7 +40,7 @@ const extensionSource = fs.readFileSync(
 );
 
 // ---------------------------------------------------------------------------
-// Tests
+// Pure helper tests
 // ---------------------------------------------------------------------------
 
 describe("riskLevelIndex", () => {
@@ -145,14 +104,22 @@ describe("parseVerdict", () => {
 		assert.deepEqual(result, { risk: "safe", reason: "read-only" });
 	});
 
-	it("extracts JSON from surrounding text", () => {
-		const result = parseVerdict('Here is my verdict: {"risk":"medium","reason":"moderate risk"} Done.');
-		assert.deepEqual(result, { risk: "medium", reason: "moderate risk" });
-	});
-
 	it("returns medium fallback for unparseable text", () => {
 		const result = parseVerdict("This is not JSON at all");
 		assert.deepEqual(result, { risk: "medium", reason: "Could not parse LLM verdict" });
+	});
+
+	it("returns a distinct fallback for empty / whitespace-only response", () => {
+		// MiniMax-M3 burns its full budget on untracked reasoning and emits nothing
+		// visible — distinguish from parse failure so the log surfaces the real cause.
+		assert.deepEqual(parseVerdict(""), { risk: "medium", reason: "LLM returned empty response" });
+		assert.deepEqual(parseVerdict("   \n  \t  "), { risk: "medium", reason: "LLM returned empty response" });
+	});
+
+	it("extracts JSON from surrounding prose via regex fallback", () => {
+		// Models that ignore the JSON-only instruction still produce a parseable verdict.
+		const result = parseVerdict('Here is my verdict: {"risk":"medium","reason":"moderate risk"} Done.');
+		assert.deepEqual(result, { risk: "medium", reason: "moderate risk" });
 	});
 
 	it("returns medium fallback for JSON with invalid risk level", () => {
@@ -163,171 +130,6 @@ describe("parseVerdict", () => {
 	it("returns medium fallback for JSON missing reason", () => {
 		const result = parseVerdict('{"risk":"low"}');
 		assert.deepEqual(result, { risk: "medium", reason: "Could not parse LLM verdict" });
-	});
-});
-
-describe("consistency with source file", () => {
-	it("references PI_AI_PERM_GATE_MAX_TOKENS env var", () => {
-		assert.match(extensionSource, /PI_AI_PERM_GATE_MAX_TOKENS/);
-	});
-
-	it("references PI_AI_PERM_GATE_TEMPERATURE env var", () => {
-		assert.match(extensionSource, /PI_AI_PERM_GATE_TEMPERATURE/);
-	});
-
-	it("completeSimple call includes maxTokens or options spread", () => {
-		// Verify options are forwarded inside the completeSimple call
-		assert.match(extensionSource, /completeSimple\([^)]*\{[^}]*\.{3}\s*options[^}]*\}/s);
-	});
-
-	it("readPermissionGateMaxTokens function exists", () => {
-		assert.match(extensionSource, /function readPermissionGateMaxTokens/);
-	});
-
-	it("readPermissionGateTemperature function exists", () => {
-		assert.match(extensionSource, /function readPermissionGateTemperature/);
-	});
-
-	it("maxTokens uses env var || settings.json reader fallback", () => {
-		// Handler should reference both the env var and the read function
-		assert.match(extensionSource, /readPermissionGateMaxTokens/);
-		assert.match(extensionSource, /PI_AI_PERM_GATE_MAX_TOKENS/);
-	});
-
-	it("temperature uses env var || settings.json reader fallback", () => {
-		// Handler should reference both the env var and the read function
-		assert.match(extensionSource, /readPermissionGateTemperature/);
-		assert.match(extensionSource, /PI_AI_PERM_GATE_TEMPERATURE/);
-	});
-
-	it("readPermissionGateTimeout function exists", () => {
-		assert.match(extensionSource, /function readPermissionGateTimeout/);
-	});
-
-	it("timeout uses env var || settings.json reader fallback", () => {
-		// Handler should reference both the env var and the read function
-		assert.match(extensionSource, /readPermissionGateTimeout/);
-		assert.match(extensionSource, /PI_AI_PERM_GATE_TIMEOUT/);
-	});
-
-	it("RISK_LEVELS array matches the source file", () => {
-		// Extract RISK_LEVELS from the .ts source
-		const match = extensionSource.match(/const RISK_LEVELS\s*=\s*\[([^\]]+)\]/);
-		assert.ok(match, "Could not find RISK_LEVELS in source file");
-		const sourceLevels = match[1]
-			.split(",")
-			.map((s) => s.trim().replace(/"/g, ""));
-		assert.deepEqual(sourceLevels, [...RISK_LEVELS]);
-	});
-
-	it("parseVerdict fallback risk matches the source file", () => {
-		// Extract the fallback return from the source
-		const match = extensionSource.match(
-			/return \{\s*risk:\s*"(\w+)",\s*reason:\s*"Could not parse LLM verdict"\s*\}/,
-		);
-		assert.ok(match, "Could not find parseVerdict fallback in source file");
-		assert.equal(match[1], "medium", "Fallback risk should be 'medium'");
-	});
-
-	it("truncateCommand function exists in source file", () => {
-		assert.match(extensionSource, /function truncateCommand/);
-	});
-});
-
-describe("CWD-aware system prompt content", () => {
-	it("contains Working directory context section", () => {
-		assert.match(extensionSource, /Working directory context:/);
-	});
-
-	it("mentions CWD in the user prompt template", () => {
-		assert.match(extensionSource, /Current working directory:/);
-	});
-
-	it("classifyCommand accepts cwd parameter", () => {
-		assert.match(extensionSource, /classifyCommand\([^)]*command:\s*string[^)]*cwd:\s*string/s);
-	});
-
-	it("passes ctx.cwd to classifyCommand", () => {
-		assert.match(extensionSource, /classifyCommand\(command,\s*ctx\.cwd/);
-	});
-
-	it("tells LLM that CWD-scoped deletions are low risk", () => {
-		assert.match(extensionSource, /Deleting files\/dirs under CWD.*low risk/);
-	});
-
-	it("tells LLM that system paths retain normal risk", () => {
-		assert.match(extensionSource, /paths outside CWD.*retain their normal risk/);
-	});
-
-	it("low risk definition includes CWD-scoped deletions", () => {
-		assert.match(extensionSource, /CWD-scoped deletions and modifications/);
-	});
-
-	it("high risk definition mentions outside CWD", () => {
-		assert.match(extensionSource, /operations outside CWD that affect system state/);
-	});
-
-	it("package installs are described as low risk (not safe)", () => {
-		assert.match(extensionSource, /Package installs.*within CWD are low risk/);
-	});
-
-	it("medium risk examples include CWD-outside path", () => {
-		assert.match(extensionSource, /rm -rf \.\.\/other-project/);
-	});
-
-	it("CWD is delimited with backticks in user prompt", () => {
-		assert.match(extensionSource, /Current working directory: \\`\$\{cwd\}\\`/);
-	});
-
-	it("classifyCommand has CWD fallback guard", () => {
-		assert.match(extensionSource, /if \(!cwd\)\s*\{\s*cwd = process\.cwd\(\)/);
-	});
-
-	it("uses completeSimple from @earendil-works/pi-ai/compat for classification", () => {
-		assert.match(extensionSource, /completeSimple/);
-		assert.match(extensionSource, /from "@earendil-works\/pi-ai\/compat"/);
-	});
-
-	it("does NOT use createAgentSession (heavier than needed)", () => {
-		assert.doesNotMatch(extensionSource, /createAgentSession/);
-	});
-
-	it("does NOT use SessionManager for classification", () => {
-		assert.doesNotMatch(extensionSource, /SessionManager/);
-	});
-
-	it("does NOT include subprocess spawn for classification", () => {
-		assert.doesNotMatch(extensionSource, /from "node:child_process"/);
-	});
-
-	it("does NOT include temp file creation for prompts", () => {
-		assert.doesNotMatch(extensionSource, /mkdtemp.*pi-ai-perm/);
-	});
-
-	it("resolveModel function reads from PI_AI_PERM_GATE_MODEL env var and settings.json", () => {
-		assert.match(extensionSource, /readPermissionGateModel/);
-		assert.match(extensionSource, /PI_AI_PERM_GATE_MODEL/);
-		assert.match(extensionSource, /permissionGate/);
-	});
-
-	it("falls back to ctx.model when no PI_AI_PERM_GATE_MODEL is set", () => {
-		assert.match(extensionSource, /resolveModel.*ctx\.model/s);
-	});
-
-	it("resolves API key via ModelRegistry.getApiKeyAndHeaders", () => {
-		assert.match(extensionSource, /getApiKeyAndHeaders/);
-	});
-
-	it("does NOT include CWD_MAX_RISK env var (LLM-only approach)", () => {
-		assert.doesNotMatch(extensionSource, /PI_AI_PERM_GATE_CWD_MAX_RISK/);
-	});
-
-	it("does NOT include isCwdScoped heuristic", () => {
-		assert.doesNotMatch(extensionSource, /function isCwdScoped/);
-	});
-
-	it("does NOT include hasSystemEscapePattern", () => {
-		assert.doesNotMatch(extensionSource, /function hasSystemEscapePattern/);
 	});
 });
 
@@ -382,3 +184,295 @@ describe("risk level comparison logic", () => {
 		assert.equal(riskLevelIndex("high") > riskLevelIndex("low"), true);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Source-shape regression guards (config/env/auth plumbing)
+// ---------------------------------------------------------------------------
+
+describe("config plumbing", () => {
+	it("references PI_AI_PERM_GATE_MAX_TOKENS env var", () => {
+		assert.match(extensionSource, /PI_AI_PERM_GATE_MAX_TOKENS/);
+	});
+
+	it("references PI_AI_PERM_GATE_TEMPERATURE env var", () => {
+		assert.match(extensionSource, /PI_AI_PERM_GATE_TEMPERATURE/);
+	});
+
+	it("references PI_AI_PERM_GATE_TIMEOUT env var", () => {
+		assert.match(extensionSource, /PI_AI_PERM_GATE_TIMEOUT/);
+	});
+
+	it("has readPermissionGateMaxTokens function", () => {
+		assert.match(extensionSource, /function readPermissionGateMaxTokens/);
+	});
+
+	it("has readPermissionGateTemperature function", () => {
+		assert.match(extensionSource, /function readPermissionGateTemperature/);
+	});
+
+	it("has readPermissionGateTimeout function", () => {
+		assert.match(extensionSource, /function readPermissionGateTimeout/);
+	});
+
+	it("resolves API key via ModelRegistry.getApiKeyAndHeaders", () => {
+		assert.match(extensionSource, /getApiKeyAndHeaders/);
+	});
+
+	it("uses Provider.streamSimple for classification", () => {
+		assert.match(extensionSource, /provider\s*\.\s*streamSimple\s*\(/);
+	});
+
+	it("does NOT use compat entrypoint", () => {
+		assert.doesNotMatch(extensionSource, /from ["']@earendil-works\/pi-ai\/compat["']/);
+		assert.doesNotMatch(extensionSource, /\bcompleteSimple\s*\(/);
+	});
+});
+
+describe("CWD-aware system prompt content", () => {
+	it("contains Working directory context section", () => {
+		assert.match(extensionSource, /Working directory context:/);
+	});
+
+	it("mentions CWD in the user prompt template", () => {
+		assert.match(extensionSource, /Current working directory:/);
+	});
+
+	it("classifyCommand accepts cwd parameter", () => {
+		assert.match(extensionSource, /classifyCommand\([^)]*command:\s*string[^)]*cwd:\s*string/s);
+	});
+
+	it("passes ctx.cwd to classifyCommand", () => {
+		assert.match(extensionSource, /classifyCommand\(\s*command,\s*ctx\.cwd/);
+	});
+
+	it("tells LLM that CWD-scoped deletions are low risk", () => {
+		assert.match(extensionSource, /Deleting files\/dirs under CWD.*low risk/);
+	});
+
+	it("tells LLM that system paths retain normal risk", () => {
+		assert.match(extensionSource, /paths outside CWD.*retain their normal risk/);
+	});
+
+	it("low risk definition includes CWD-scoped deletions", () => {
+		assert.match(extensionSource, /CWD-scoped deletions and modifications/);
+	});
+
+	it("high risk definition mentions outside CWD", () => {
+		assert.match(extensionSource, /operations outside CWD that affect system state/);
+	});
+
+	it("package installs are described as low risk (not safe)", () => {
+		assert.match(extensionSource, /Package installs.*within CWD are low risk/);
+	});
+
+	it("medium risk examples include CWD-outside path", () => {
+		assert.match(extensionSource, /rm -rf \.\.\/other-project/);
+	});
+
+	it("CWD is delimited with backticks in user prompt", () => {
+		assert.match(extensionSource, /Current working directory: \\`\$\{cwd\}\\`/);
+	});
+
+	it("classifyCommand has CWD fallback guard", () => {
+		assert.match(extensionSource, /if \(!cwd\)\s*\{\s*cwd = process\.cwd\(\)/);
+	});
+
+	it("does NOT include CWD_MAX_RISK env var (LLM-only approach)", () => {
+		assert.doesNotMatch(extensionSource, /PI_AI_PERM_GATE_CWD_MAX_RISK/);
+	});
+
+	it("does NOT include isCwdScoped heuristic", () => {
+		assert.doesNotMatch(extensionSource, /function isCwdScoped/);
+	});
+
+	it("does NOT include hasSystemEscapePattern", () => {
+		assert.doesNotMatch(extensionSource, /function hasSystemEscapePattern/);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Behavioral extension tests
+// ---------------------------------------------------------------------------
+
+describe("extension load", () => {
+	it("default export is a function", () => {
+		assert.equal(typeof extension, "function");
+	});
+});
+
+describe("herdr:blocked emit pairing on permission prompt", () => {
+	// Site A path: classifier throws (ctx.model undefined), fallback=confirm,
+	// ctx.ui.select returns "No" → user denies.
+	it("emits active:true then active:false when user denies (Site A, No)", async () => {
+		const { events, api } = makeMockPi();
+		extension(api);
+		const handler = api.on.mock?.calls?.[0]?.[1]; // not used — see below
+
+		// pi.on was called with "tool_call"; grab the handler directly
+		const toolCallHandlers = events.listeners.get("tool_call");
+		assert.ok(toolCallHandlers?.length === 1, "tool_call handler registered");
+
+		const ctx = makeMockCtx({ selectReturn: "No" });
+		const result = await toolCallHandlers[0](
+			{ toolName: "bash", input: { command: "rm -rf /important" } },
+			ctx,
+		);
+
+		// Denial returns a block result
+		assert.deepEqual(result, { block: true, reason: "Blocked by user (AI check failed)" });
+
+		// Emit pairing: exactly one active:true, then exactly one active:false,
+		// both on herdr:blocked, in that order.
+		const herdrEvents = events.emitted.filter((e) => e.channel === "herdr:blocked");
+		assert.equal(herdrEvents.length, 2, "expected exactly 2 herdr:blocked emits");
+		assert.equal(herdrEvents[0].data.active, true, "first emit must be active:true");
+		assert.equal(herdrEvents[1].data.active, false, "second emit must be active:false");
+		assert.ok(
+			typeof herdrEvents[0].data.label === "string" && herdrEvents[0].data.label.length > 0,
+			"active:true must carry a label string",
+		);
+		assert.equal(herdrEvents[1].data.label, undefined, "active:false carries no label");
+	});
+
+	it("emits active:true then active:false when user allows (Site A, Yes)", async () => {
+		const { events, api } = makeMockPi();
+		extension(api);
+		const toolCallHandlers = events.listeners.get("tool_call");
+
+		const ctx = makeMockCtx({ selectReturn: "Yes" });
+		const result = await toolCallHandlers[0](
+			{ toolName: "bash", input: { command: "rm -rf /important" } },
+			ctx,
+		);
+
+		// Allow returns undefined (gate passes)
+		assert.equal(result, undefined);
+
+		const herdrEvents = events.emitted.filter((e) => e.channel === "herdr:blocked");
+		assert.equal(herdrEvents.length, 2);
+		assert.equal(herdrEvents[0].data.active, true);
+		assert.equal(herdrEvents[1].data.active, false);
+	});
+
+	it("does NOT emit herdr:blocked when ctx.hasUI is false (headless fallback)", async () => {
+		const { events, api } = makeMockPi();
+		extension(api);
+		const toolCallHandlers = events.listeners.get("tool_call");
+
+		const ctx = makeMockCtx({ selectReturn: "No" });
+		ctx.hasUI = false; // headless: no prompt, fallback=confirm → allow
+		const result = await toolCallHandlers[0](
+			{ toolName: "bash", input: { command: "rm -rf /important" } },
+			ctx,
+		);
+
+		assert.equal(result, undefined, "headless fallback=confirm allows without prompt");
+		const herdrEvents = events.emitted.filter((e) => e.channel === "herdr:blocked");
+		assert.equal(herdrEvents.length, 0, "no emit when no prompt was shown");
+	});
+
+	it("does NOT emit herdr:blocked for safe commands (no prompt)", async () => {
+		// Force classifier success by providing a model + mocked apiKey.
+		// Easier: skip classifier entirely by leaving ctx.model undefined but
+		// set fallback=allow so the catch returns undefined without prompting.
+		// We test the "safe command, no prompt" path via env: fallback=allow.
+		const origFallback = process.env.PI_AI_PERM_GATE_FALLBACK;
+		process.env.PI_AI_PERM_GATE_FALLBACK = "allow";
+		try {
+			const { events, api } = makeMockPi();
+			extension(api);
+			const toolCallHandlers = events.listeners.get("tool_call");
+
+			const ctx = makeMockCtx({ selectReturn: "Yes" });
+			// ctx.hasUI true but fallback=allow → catch branch returns undefined
+			// without calling confirmWithUser → no emit.
+			const result = await toolCallHandlers[0](
+				{ toolName: "bash", input: { command: "ls -la" } },
+				ctx,
+			);
+
+			assert.equal(result, undefined);
+			const herdrEvents = events.emitted.filter((e) => e.channel === "herdr:blocked");
+			assert.equal(herdrEvents.length, 0, "fallback=allow must not emit blocked");
+		} finally {
+			if (origFallback === undefined) delete process.env.PI_AI_PERM_GATE_FALLBACK;
+			else process.env.PI_AI_PERM_GATE_FALLBACK = origFallback;
+		}
+	});
+
+	it("releases blocked state even if ctx.ui.select throws", async () => {
+		const { events, api } = makeMockPi();
+		extension(api);
+		const toolCallHandlers = events.listeners.get("tool_call");
+
+		const ctx = makeMockCtx({ selectReturn: "Yes" });
+		// Override select to throw, simulating abort/error mid-prompt
+		ctx.ui.select = async () => {
+			throw new Error("simulated abort");
+		};
+
+		await assert.rejects(
+			toolCallHandlers[0](
+				{ toolName: "bash", input: { command: "rm -rf /important" } },
+				ctx,
+			),
+			/simulated abort/,
+		);
+
+		// Critical: try/finally must still release the blocked state
+		const herdrEvents = events.emitted.filter((e) => e.channel === "herdr:blocked");
+		assert.equal(herdrEvents.length, 2, "active:false must fire even if select throws");
+		assert.equal(herdrEvents[0].data.active, true);
+		assert.equal(herdrEvents[1].data.active, false);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Mock helpers
+// ---------------------------------------------------------------------------
+
+function makeMockPi() {
+	const events = { emitted: [], listeners: new Map() };
+	return {
+		events,
+		api: {
+			on(event, handler) {
+				if (!events.listeners.has(event)) events.listeners.set(event, []);
+				events.listeners.get(event).push(handler);
+			},
+			events: {
+				emit(channel, data) {
+					events.emitted.push({ channel, data });
+				},
+				on(channel, handler) {
+					if (!events.listeners.has(channel)) events.listeners.set(channel, []);
+					events.listeners.get(channel).push(handler);
+				},
+			},
+			registerTool() {},
+			registerCommand() {},
+		},
+	};
+}
+
+// Mock ctx that forces the classifier path to throw (ctx.model = undefined),
+// landing in the fallback=confirm branch (Site A) without any real LLM call.
+function makeMockCtx({ selectReturn }) {
+	return {
+		hasUI: true,
+		cwd: process.cwd(),
+		model: undefined,
+		signal: undefined,
+		modelRegistry: {
+			async getApiKeyAndHeaders() {
+				return { ok: false, error: "mock: no api key" };
+			},
+		},
+		ui: {
+			notify() {},
+			async select(_prompt, _choices) {
+				return selectReturn;
+			},
+		},
+	};
+}

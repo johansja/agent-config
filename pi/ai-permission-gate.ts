@@ -1,8 +1,12 @@
 /**
  * AI Permission Gate Extension
  *
- * Uses the pi-ai completeSimple() API to classify bash commands and MCP tool calls
- * by risk level and require user confirmation before executing potentially harmful ones.
+ * Uses the pi-ai Provider.streamSimple() API (resolved via ctx.modelRegistry.getProvider)
+ * to classify bash commands and MCP tool calls by risk level and require user confirmation
+ * before executing potentially harmful ones. Auth (apiKey, headers, env) is resolved via
+ * ctx.modelRegistry.getApiKeyAndHeaders and threaded in full so OAuth-only providers
+ * (Claude Pro/Max, ChatGPT Plus, Copilot) and env-scoped provider configs classify
+ * correctly, not just API-key providers.
  *
  * Instead of maintaining a long list of regex patterns, this extension
  * asks a fast, cheap model to judge each command. The LLM returns a
@@ -46,26 +50,33 @@ import {
 	type ExtensionContext,
 	type ModelRegistry,
 } from "@earendil-works/pi-coding-agent";
-import { completeSimple, type Model, type Api, type Context } from "@earendil-works/pi-ai/compat";
+import {
+	type Model,
+	type Api,
+	type Context,
+	type Provider,
+	contentText,
+	parseJsonWithRepair,
+} from "@earendil-works/pi-ai";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { blockStart, blockEnd } from "./shared/notify.ts";
 
 // Risk levels, ordered from least to most severe
-const RISK_LEVELS = ["safe", "low", "medium", "high"] as const;
-type RiskLevel = (typeof RISK_LEVELS)[number];
+export const RISK_LEVELS = ["safe", "low", "medium", "high"] as const;
+export type RiskLevel = (typeof RISK_LEVELS)[number];
 
 // Risk levels that reach a user-facing confirm prompt (safe is auto-allowed).
 // Icons carry severity at a glance across prompt title, notify body, and status.
-type ConfirmRisk = Exclude<RiskLevel, "safe"> | "unknown";
-const RISK_ICON: Record<ConfirmRisk, string> = {
+export type ConfirmRisk = Exclude<RiskLevel, "safe"> | "unknown";
+export const RISK_ICON: Record<ConfirmRisk, string> = {
 	low: "🟡",
 	medium: "🟠",
 	high: "🔴",
 	unknown: "⚪",
 };
 
-interface Verdict {
+export interface Verdict {
 	risk: RiskLevel;
 	reason: string;
 }
@@ -107,53 +118,59 @@ Important guidelines:
 - When in doubt, rate one level higher rather than lower
 - Be concise in your reason - one short sentence max`;
 
-function riskLevelIndex(level: RiskLevel): number {
+export function riskLevelIndex(level: RiskLevel): number {
 	return RISK_LEVELS.indexOf(level);
 }
 
-function truncateCommand(command: string, maxLines: number = 5): string {
+export function truncateCommand(command: string, maxLines: number = 5): string {
 	const lines = command.split("\n");
 	if (lines.length <= maxLines) return command;
 	return lines.slice(0, maxLines).join("\n") + "\n…";
 }
 
-function stripCodeFences(raw: string): string {
+export function stripCodeFences(raw: string): string {
 	let text = raw.trim();
 	// Strip markdown code fences: ```json ... ``` or ``` ... ```
 	text = text.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
 	return text.trim();
 }
 
-function parseVerdict(raw: string): Verdict {
+export function parseVerdict(raw: string): Verdict {
 	const cleaned = stripCodeFences(raw);
+	// Empty / whitespace-only response is a distinct failure mode from parse
+	// failure — the model may have spent its entire budget on untracked reasoning
+	// and emitted nothing visible (observed on MiniMax-M3 with long prompts).
+	if (!cleaned) {
+		return { risk: "medium", reason: "LLM returned empty response" };
+	}
+
+	// Try direct parse first (handles malformed control chars/escapes via parseJsonWithRepair).
+	let parsed: { risk?: unknown; reason?: unknown } | undefined;
 	try {
-		const parsed = JSON.parse(cleaned);
-		if (
-			parsed &&
-			typeof parsed.risk === "string" &&
-			RISK_LEVELS.includes(parsed.risk as RiskLevel) &&
-			typeof parsed.reason === "string"
-		) {
-			return parsed as Verdict;
-		}
+		parsed = parseJsonWithRepair(cleaned);
 	} catch {
-		// Try to extract JSON from the response in case the model added extra text
+		// Direct parse failed — fall through to regex extraction below.
+	}
+
+	// Extract first {...} block as fallback for models that wrap JSON in prose.
+	if (!parsed) {
 		const jsonMatch = cleaned.match(/\{[^{}]*"risk"[^{}]*"reason"[^{}]*\}/);
 		if (jsonMatch) {
 			try {
-				const parsed = JSON.parse(jsonMatch[0]);
-				if (
-					parsed &&
-					typeof parsed.risk === "string" &&
-					RISK_LEVELS.includes(parsed.risk as RiskLevel) &&
-					typeof parsed.reason === "string"
-				) {
-					return parsed as Verdict;
-				}
+				parsed = parseJsonWithRepair(jsonMatch[0]);
 			} catch {
-				// fall through
+				// fall through to shape-check fallback
 			}
 		}
+	}
+
+	if (
+		parsed &&
+		typeof parsed.risk === "string" &&
+		RISK_LEVELS.includes(parsed.risk as RiskLevel) &&
+		typeof parsed.reason === "string"
+	) {
+		return parsed as Verdict;
 	}
 	return { risk: "medium", reason: "Could not parse LLM verdict" };
 }
@@ -309,15 +326,17 @@ async function resolveModel(
 }
 
 /**
- * Classify a tool operation using the pi-ai completeSimple() API.
+ * Classify a tool operation using the pi-ai Provider.streamSimple() API.
  * Sends a single-shot LLM request with the safety classifier system prompt
- * and returns the parsed verdict.
+ * and returns the parsed verdict. Awaits stream.result() for the final
+ * AssistantMessage.
  */
 async function classifyCommand(
 	command: string,
 	cwd: string,
 	model: Model<Api>,
-	apiKey: string | undefined,
+	provider: Provider<Api>,
+	auth: { apiKey?: string; headers?: Record<string, string>; env?: Record<string, string> },
 	timeout: number,
 	signal: AbortSignal | undefined,
 	options: { maxTokens?: number; temperature?: number },
@@ -358,24 +377,24 @@ async function classifyCommand(
 	}
 
 	try {
-		const response = await completeSimple(model, context, {
-			...options,
-			apiKey,
-			signal: timeoutController.signal,
-		});
+		// provider.streamSimple(...).result() is the stable pi-ai surface.
+		// The pi-ai/compat completeSimple entrypoint is marked temporary and
+		// slated for removal during the ModelManager migration.
+		const response = await provider
+			.streamSimple(model, context, {
+				...options,
+				apiKey: auth.apiKey,
+				headers: auth.headers,
+				env: auth.env,
+				signal: timeoutController.signal,
+			})
+			.result();
 
 		// Extract text from the assistant response
-		let responseText = "";
-		for (const part of response.content) {
-			if (part.type === "text") {
-				responseText += part.text;
-			}
-		}
-
+		const responseText = contentText(response.content);
 		if (!responseText) {
 			throw new Error("LLM classification returned empty response");
 		}
-
 		return parseVerdict(responseText);
 	} catch (err) {
 		if (timedOut) {
@@ -494,16 +513,32 @@ export default function (pi: ExtensionAPI) {
 				throw new Error("No model available for classification");
 			}
 
-			// Resolve API key via the session's model registry
+			// Resolve provider and auth via the session's model registry. Thread
+			// apiKey AND headers/env so OAuth-only (Claude Pro/Max, ChatGPT Plus,
+			// Copilot) and env-scoped providers classify correctly, not just
+			// API-key providers.
+			const provider = ctx.modelRegistry.getProvider(model.provider);
+			if (!provider) {
+				throw new Error(`No provider registered for ${model.provider}`);
+			}
 			const authResult = await ctx.modelRegistry.getApiKeyAndHeaders(model);
 			if (!authResult.ok) {
 				throw new Error(`No API key for ${model.provider}/${model.id}: ${authResult.error}`);
 			}
 
-			verdict = await classifyCommand(command, ctx.cwd, model, authResult.apiKey, timeout, ctx.signal, {
-				maxTokens,
-				...(temperature !== undefined && { temperature }),
-			});
+			verdict = await classifyCommand(
+				command,
+				ctx.cwd,
+				model,
+				provider,
+				authResult,
+				timeout,
+				ctx.signal,
+				{
+					maxTokens,
+					...(temperature !== undefined && { temperature }),
+				},
+			);
 		} catch (err) {
 			// LLM call failed - log and use fallback strategy
 			const errDetail = err instanceof Error ? err.message : String(err);

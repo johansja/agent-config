@@ -162,6 +162,7 @@ ln -sf "$PWD/commands/mr-review.md" ~/.pi/agent/prompts/mr-review.md
 ln -sf "$PWD/commands/to-spec.md" ~/.pi/agent/prompts/to-spec.md
 ln -sf "$PWD/commands/triple-review.md" ~/.pi/agent/prompts/triple-review.md
 ln -sf "$PWD/commands/wayfinder.md" ~/.pi/agent/prompts/wayfinder.md
+ln -sf "$PWD/commands/triage.md" ~/.pi/agent/prompts/triage.md
 ln -sf "$PWD/commands/cruft-review.md" ~/.config/opencode/commands/cruft-review.md
 ln -sf "$PWD/commands/fix-hard-violations.md" ~/.config/opencode/commands/fix-hard-violations.md
 ln -sf "$PWD/commands/grill-with-docs.md" ~/.config/opencode/commands/grill-with-docs.md
@@ -170,6 +171,7 @@ ln -sf "$PWD/commands/mr-review.md" ~/.config/opencode/commands/mr-review.md
 ln -sf "$PWD/commands/to-spec.md" ~/.config/opencode/commands/to-spec.md
 ln -sf "$PWD/commands/triple-review.md" ~/.config/opencode/commands/triple-review.md
 ln -sf "$PWD/commands/wayfinder.md" ~/.config/opencode/commands/wayfinder.md
+ln -sf "$PWD/commands/triage.md" ~/.config/opencode/commands/triage.md
 ```
 
 The symlinks ensure edits in this repo are immediately reflected in pi and opencode without copying.

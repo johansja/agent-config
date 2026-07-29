@@ -1,9 +1,9 @@
 ---
-description: Looping apply-layer over triple-review. Enforceable findings loop to convergence or cap 3. Advisory and HBR-security findings defer. No commit.
+description: Looping apply-layer over the `code-review` skill (axes: Correctness, Security, Standards). Enforceable findings loop to convergence or cap 3. Advisory and HBR-security findings defer. No commit.
 argument-hint: "[files|commits|range]"
 ---
 
-Apply-layer over `/triple-review $ARGUMENTS` in the main session (the `review` subagent can't edit). Smell/hard-violation distinction: see `/triple-review` Style axis.
+Apply-layer over the `code-review` skill — run it with `code-review`'s local-default axes {Correctness, Security, Standards} on `$ARGUMENTS` (Spec omitted — no MR/PR spec source for local diffs; see `code-review` Spec-source rule). The `review` subagent can't edit, so fixes happen here, in the main session. Smell/hard-violation distinction: see `code-review` Standards axis.
 
 ## Classify
 
@@ -11,13 +11,13 @@ Apply-layer over `/triple-review $ARGUMENTS` in the main session (the `review` s
 |------|------|-------|
 | Correctness | Critical, Warning | Suggestion |
 | Security | Critical, Warning (non-HBR) | Suggestion; all HBR regardless of severity |
-| Style | Hard violations | All smells; tooling-enforced |
+| Standards | Hard violations | All smells; tooling-enforced |
 
 **HBR carve-out (defer regardless of severity):** `**/auth*`, `**/authz*`, `**/permissions*`, `**/secrets*`, `**/identity*`, `**/*.env*`, `**/config*.{js,ts,json,yaml,yml,toml}`, `**/docker-compose*`, `**/Dockerfile*`, `**/*.tf`, `**/k8s/**`, `**/charts/**`. Also defer diffs touching tokens: `password|secret|token|api_key|apikey|private_key|credential`.
 
 ## Loop (max 3 rounds)
 
-`/triple-review $ARGUMENTS` → classify → apply enforceable fixes only (one finding → one edit, no adjacent refactors) → run tests once if correctness fixes applied → defer everything else.
+`code-review` (axes: Correctness, Security, Standards) → classify → apply enforceable fixes only (one finding → one edit, no adjacent refactors) → run tests once if correctness fixes applied → defer everything else.
 
 ## Stop
 
@@ -34,5 +34,4 @@ Any one: clean round (zero enforceable), cap=3, oscillation (same finding flagge
 ## Guardrails
 
 - No scope expansion — fixes outside the original diff defer.
-- Tests once per round, only if correctness fixes applied.
 - No commit. Working tree dirty.

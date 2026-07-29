@@ -13,7 +13,7 @@ Review a diff along one or more **axes**, each as a parallel `review` subagent s
 
 ## 2. Pick axes
 
-Confirm axes with the user if unclear. Default: MR/PR → Standards + Spec; local → Correctness + Security + Standards.
+Confirm axes with the user if unclear. Default: Standards + Spec + Correctness + Security.
 
 ## 3. Per-axis inputs
 
@@ -30,7 +30,7 @@ Confirm axes with the user if unclear. Default: MR/PR → Standards + Spec; loca
   - **Message Chains** → hide behind one method
   - **Middle Man** → cut
   - **Refused Bequest** → composition over inheritance
-- **Spec**: source priority — (1) MR/PR description, (2) linked issue (`Closes #N` / `Resolves #N`), (3) if both absent: output "no spec available" and skip the axis. Do not invent a spec from the diff.
+- **Spec**: source priority — (1) MR/PR description or commit messages, (2) linked issue (`Closes #N` / `Resolves #N`), (3) if all absent: output "no spec available" and skip the axis. Do not invent a spec from the diff.
 - **Correctness**: changed file paths; run the suite if one fits (`go test`/`pytest`/`node --test`), skip if none.
 - **Security**: diff only; no tests.
 

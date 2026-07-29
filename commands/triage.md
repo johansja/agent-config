@@ -1,5 +1,5 @@
 ---
-description: Move incoming issues (default: Jira) through a small role state machine
+description: "Move incoming issues (default: Jira) through a small role state machine"
 argument-hint: "[<query, issue key, or transition request>]"
 ---
 

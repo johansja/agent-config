@@ -1,5 +1,5 @@
 ---
-description: Looping apply-layer over the `code-review` skill (axes: Correctness, Security, Standards). Enforceable findings loop to convergence or cap 3. Advisory and HBR-security findings defer. No commit.
+description: "Looping apply-layer over the `code-review` skill (axes: Correctness, Security, Standards). Enforceable findings loop to convergence or cap 3. Advisory and HBR-security findings defer. No commit."
 argument-hint: "[files|commits|range]"
 ---
 

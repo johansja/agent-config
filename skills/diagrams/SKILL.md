@@ -11,4 +11,4 @@ Pick the first rung that holds. Stop climbing.
 
 Hard rule: if the diagram needs a paragraph to be understood, redraw it.
 
-Vocabulary from `/skill:codebase-design`. See `references/patterns.md` for worked examples.
+Vocabulary from `codebase-design`. See `references/patterns.md` for worked examples.

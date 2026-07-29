@@ -5,7 +5,7 @@ description: Navigate, explore, and understand an unfamiliar codebase. Use when 
 
 1. **Recon** via `scout` (subagent or direct tools). Thoroughness: quick = targeted lookup, medium = follow imports and critical sections, thorough = trace deps + check tests/types.
 
-2. **Route on intent:** architecture critique → `/skill:codebase-design`; visualize → `/skill:diagrams`; domain confusion → `/skill:domain-modeling`; plan changes → dispatch `plan`; pure understanding → present and stop.
+2. **Route on intent:** architecture critique → `codebase-design`; visualize → `diagrams`; domain confusion → `domain-modeling`; plan changes → dispatch `plan`; pure understanding → present and stop.
 
 3. **Deepen** if gaps: grep cross-refs, trace data flow, check tests. Reuse scout's file list — don't re-read. Hand off to `plan`; don't duplicate.
 

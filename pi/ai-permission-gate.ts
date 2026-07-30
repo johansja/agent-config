@@ -81,6 +81,11 @@ export interface Verdict {
 	reason: string;
 }
 
+// Reason strings are part of the log contract and the test contract; export them
+// so the handler can detect parse-failure verdicts without string-matching.
+export const PARSE_FAILURE_REASON = "Could not parse LLM verdict";
+export const EMPTY_RESPONSE_REASON = "LLM returned empty response";
+
 const SYSTEM_PROMPT = `You are a command safety classifier. You analyze shell commands and determine their risk level.
 
 Respond with EXACTLY this JSON format and nothing else:
@@ -135,35 +140,19 @@ export function stripCodeFences(raw: string): string {
 	return text.trim();
 }
 
-export function parseVerdict(raw: string): Verdict {
-	const cleaned = stripCodeFences(raw);
-	// Empty / whitespace-only response is a distinct failure mode from parse
-	// failure — the model may have spent its entire budget on untracked reasoning
-	// and emitted nothing visible (observed on MiniMax-M3 with long prompts).
-	if (!cleaned) {
-		return { risk: "medium", reason: "LLM returned empty response" };
-	}
-
-	// Try direct parse first (handles malformed control chars/escapes via parseJsonWithRepair).
+/**
+ * Try to parse `text` as a Verdict-shaped JSON object.
+ * Returns undefined if `text` is not JSON or does not have a valid
+ * {risk, reason} shape. Uses parseJsonWithRepair so malformed control
+ * chars / bad escapes inside an otherwise-valid JSON body are tolerated.
+ */
+function tryParseVerdict(text: string): Verdict | undefined {
 	let parsed: { risk?: unknown; reason?: unknown } | undefined;
 	try {
-		parsed = parseJsonWithRepair(cleaned);
+		parsed = parseJsonWithRepair(text);
 	} catch {
-		// Direct parse failed — fall through to regex extraction below.
+		return undefined;
 	}
-
-	// Extract first {...} block as fallback for models that wrap JSON in prose.
-	if (!parsed) {
-		const jsonMatch = cleaned.match(/\{[^{}]*"risk"[^{}]*"reason"[^{}]*\}/);
-		if (jsonMatch) {
-			try {
-				parsed = parseJsonWithRepair(jsonMatch[0]);
-			} catch {
-				// fall through to shape-check fallback
-			}
-		}
-	}
-
 	if (
 		parsed &&
 		typeof parsed.risk === "string" &&
@@ -172,7 +161,61 @@ export function parseVerdict(raw: string): Verdict {
 	) {
 		return parsed as Verdict;
 	}
-	return { risk: "medium", reason: "Could not parse LLM verdict" };
+	return undefined;
+}
+
+/**
+ * Yield every balanced {...} span in `text`, in order of each opening brace.
+ *
+ * Reasoning models (MiniMax-M3, DeepSeek-V4-Pro) wrap the JSON verdict in
+ * thinking prose and may include braces inside that prose. A single regex
+ * cannot robustly extract the JSON object: it breaks on nested braces,
+ * reversed key order, or braces inside string values. Instead, for every
+ * `{`, scan forward to its matching `}` (depth-tracked from that brace) and
+ * yield the span. parseJsonWithRepair then validates each candidate — JSON
+ * parses handle braces inside string literals correctly, so the scanner does
+ * not need to be string-aware; it only needs to produce plausible spans.
+ */
+function* extractJsonCandidates(text: string): Iterable<string> {
+	for (let i = 0; i < text.length; i++) {
+		if (text[i] !== "{") continue;
+		let depth = 0;
+		for (let j = i; j < text.length; j++) {
+			const ch = text[j];
+			if (ch === "{") depth++;
+			else if (ch === "}") {
+				depth--;
+				if (depth === 0) {
+					yield text.slice(i, j + 1);
+					break;
+				}
+			}
+		}
+	}
+}
+
+export function parseVerdict(raw: string): Verdict {
+	const cleaned = stripCodeFences(raw);
+	// Empty / whitespace-only response is a distinct failure mode from parse
+	// failure — the model may have spent its entire budget on untracked reasoning
+	// and emitted nothing visible (observed on MiniMax-M3 with long prompts).
+	if (!cleaned) {
+		return { risk: "medium", reason: EMPTY_RESPONSE_REASON };
+	}
+
+	// Fast path: the whole cleaned text is the JSON object (possibly with
+	// control chars / bad escapes that parseJsonWithRepair repairs).
+	const direct = tryParseVerdict(cleaned);
+	if (direct) return direct;
+
+	// Fallback: extract every balanced {...} candidate and try each. Handles
+	// JSON wrapped in prose, braces in reasoning text, and reversed key order.
+	for (const candidate of extractJsonCandidates(cleaned)) {
+		const v = tryParseVerdict(candidate);
+		if (v) return v;
+	}
+
+	return { risk: "medium", reason: PARSE_FAILURE_REASON };
 }
 
 function logCommandDecision(
@@ -181,9 +224,10 @@ function logCommandDecision(
 	blockLevel: RiskLevel,
 	decision: "allowed" | "blocked" | "confirmed",
 	reason?: string,
+	rawResponse?: string,
 ): void {
 	const timestamp = new Date().toISOString();
-	const entry = {
+	const entry: Record<string, unknown> = {
 		timestamp,
 		command,
 		risk,
@@ -191,6 +235,15 @@ function logCommandDecision(
 		decision,
 		reason,
 	};
+	// Attach the raw LLM response only when the parser could not extract a
+	// verdict, so successful classifications don't bloat the log. Cap at 2000
+	// chars — enough to diagnose format drift without unbounded growth from
+	// reasoning-model thinking traces.
+	if (rawResponse !== undefined) {
+		entry.rawResponse = rawResponse.length > 2000
+			? rawResponse.slice(0, 2000) + "…[truncated]"
+			: rawResponse;
+	}
 	const logLine = JSON.stringify(entry) + "\n";
 
 	const logFile = path.join(process.env.HOME || "/tmp", ".pi", "ai-permission-gate.jsonl");
@@ -340,7 +393,7 @@ async function classifyCommand(
 	timeout: number,
 	signal: AbortSignal | undefined,
 	options: { maxTokens?: number; temperature?: number },
-): Promise<Verdict> {
+): Promise<{ verdict: Verdict; rawResponse: string }> {
 	// Fallback to process CWD if ctx.cwd is missing
 	if (!cwd) {
 		cwd = process.cwd();
@@ -395,7 +448,7 @@ async function classifyCommand(
 		if (!responseText) {
 			throw new Error("LLM classification returned empty response");
 		}
-		return parseVerdict(responseText);
+		return { verdict: parseVerdict(responseText), rawResponse: responseText };
 	} catch (err) {
 		if (timedOut) {
 			throw new Error("LLM classification timed out");
@@ -433,6 +486,7 @@ async function confirmWithUser(
 	command: string,
 	blockLevel: RiskLevel,
 	opts: ConfirmOptions,
+	rawResponse?: string,
 ): Promise<{ block: true; reason: string } | undefined> {
 	const icon = RISK_ICON[opts.risk];
 	blockStart(pi, ctx, `${icon} ${opts.notifyBody}`, {
@@ -446,10 +500,10 @@ async function confirmWithUser(
 			["Yes", "No"],
 		);
 		if (choice !== "Yes") {
-			logCommandDecision(command, opts.risk, blockLevel, "blocked", opts.blockedLogReason);
+			logCommandDecision(command, opts.risk, blockLevel, "blocked", opts.blockedLogReason, rawResponse);
 			return { block: true, reason: opts.blockReason };
 		}
-		logCommandDecision(command, opts.risk, blockLevel, "confirmed", opts.confirmedLogReason);
+		logCommandDecision(command, opts.risk, blockLevel, "confirmed", opts.confirmedLogReason, rawResponse);
 		return undefined;
 	} finally {
 		blockEnd(pi, ctx, "ai-permission-gate");
@@ -505,6 +559,7 @@ export default function (pi: ExtensionAPI) {
 			: undefined;
 
 		let verdict: Verdict;
+		let rawResponse: string | undefined;
 		try {
 			// Use env var model if specified, otherwise prefer a fast/cheap model,
 			// falling back to the session's current model as last resort
@@ -526,7 +581,7 @@ export default function (pi: ExtensionAPI) {
 				throw new Error(`No API key for ${model.provider}/${model.id}: ${authResult.error}`);
 			}
 
-			verdict = await classifyCommand(
+			const result = await classifyCommand(
 				command,
 				ctx.cwd,
 				model,
@@ -539,6 +594,8 @@ export default function (pi: ExtensionAPI) {
 					...(temperature !== undefined && { temperature }),
 				},
 			);
+			verdict = result.verdict;
+			rawResponse = result.rawResponse;
 		} catch (err) {
 			// LLM call failed - log and use fallback strategy
 			const errDetail = err instanceof Error ? err.message : String(err);
@@ -576,13 +633,23 @@ export default function (pi: ExtensionAPI) {
 			});
 		}
 
+		// Attach the raw LLM response to the log only when the parser could not
+		// extract a verdict — so successful classifications do not bloat the log
+		// and failed parses leave a forensic trail for format-drift diagnosis.
+		const parseFailureRaw = (
+			verdict.reason === PARSE_FAILURE_REASON ||
+			verdict.reason === EMPTY_RESPONSE_REASON
+		)
+			? rawResponse
+			: undefined;
+
 		// Check if the risk level meets the block threshold
 		const blockThreshold = riskLevelIndex(blockLevel);
 		const commandRisk = riskLevelIndex(verdict.risk);
 
 		if (commandRisk >= blockThreshold && verdict.risk !== "safe") {
 			if (!ctx.hasUI) {
-				logCommandDecision(command, verdict.risk, blockLevel, "blocked", verdict.reason);
+				logCommandDecision(command, verdict.risk, blockLevel, "blocked", verdict.reason, parseFailureRaw);
 				return {
 					block: true,
 					reason: `Permission gate blocked this operation (risk: ${verdict.risk}): ${verdict.reason}. Do not retry or work around it. Report exactly what you needed to run and why to your caller, then stop.`,
@@ -597,9 +664,9 @@ export default function (pi: ExtensionAPI) {
 				blockedLogReason: "Blocked by user",
 				confirmedLogReason: verdict.reason,
 				blockReason: "Blocked by user",
-			});
+			}, parseFailureRaw);
 		} else {
-			logCommandDecision(command, verdict.risk, blockLevel, "allowed", verdict.reason);
+			logCommandDecision(command, verdict.risk, blockLevel, "allowed", verdict.reason, parseFailureRaw);
 		}
 
 		return undefined;

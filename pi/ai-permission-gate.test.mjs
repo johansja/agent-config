@@ -28,7 +28,15 @@ const jiti = createJiti(import.meta.url, {
 
 const mod = await jiti.import("./ai-permission-gate.ts");
 const extension = mod.default;
-const { RISK_LEVELS, riskLevelIndex, truncateCommand, stripCodeFences, parseVerdict } = mod;
+const {
+	RISK_LEVELS,
+	riskLevelIndex,
+	truncateCommand,
+	stripCodeFences,
+	parseVerdict,
+	PARSE_FAILURE_REASON,
+	EMPTY_RESPONSE_REASON,
+} = mod;
 
 // ---------------------------------------------------------------------------
 // Read the source file for source-shape assertions
@@ -104,32 +112,98 @@ describe("parseVerdict", () => {
 		assert.deepEqual(result, { risk: "safe", reason: "read-only" });
 	});
 
-	it("returns medium fallback for unparseable text", () => {
-		const result = parseVerdict("This is not JSON at all");
-		assert.deepEqual(result, { risk: "medium", reason: "Could not parse LLM verdict" });
-	});
-
-	it("returns a distinct fallback for empty / whitespace-only response", () => {
-		// MiniMax-M3 burns its full budget on untracked reasoning and emits nothing
-		// visible — distinguish from parse failure so the log surfaces the real cause.
-		assert.deepEqual(parseVerdict(""), { risk: "medium", reason: "LLM returned empty response" });
-		assert.deepEqual(parseVerdict("   \n  \t  "), { risk: "medium", reason: "LLM returned empty response" });
-	});
-
-	it("extracts JSON from surrounding prose via regex fallback", () => {
+	it("extracts JSON from surrounding prose via fallback", () => {
 		// Models that ignore the JSON-only instruction still produce a parseable verdict.
 		const result = parseVerdict('Here is my verdict: {"risk":"medium","reason":"moderate risk"} Done.');
 		assert.deepEqual(result, { risk: "medium", reason: "moderate risk" });
 	});
 
+	// --- Failure cases ---
+
+	it("returns medium fallback for unparseable text", () => {
+		const result = parseVerdict("This is not JSON at all");
+		assert.deepEqual(result, { risk: "medium", reason: PARSE_FAILURE_REASON });
+		assert.equal(result.reason, PARSE_FAILURE_REASON,
+			"parseVerdict fallback reason must equal the exported constant");
+	});
+
 	it("returns medium fallback for JSON with invalid risk level", () => {
 		const result = parseVerdict('{"risk":"extreme","reason":"unknown risk"}');
-		assert.deepEqual(result, { risk: "medium", reason: "Could not parse LLM verdict" });
+		assert.deepEqual(result, { risk: "medium", reason: PARSE_FAILURE_REASON });
 	});
 
 	it("returns medium fallback for JSON missing reason", () => {
 		const result = parseVerdict('{"risk":"low"}');
-		assert.deepEqual(result, { risk: "medium", reason: "Could not parse LLM verdict" });
+		assert.deepEqual(result, { risk: "medium", reason: PARSE_FAILURE_REASON });
+	});
+
+	it("returns a distinct fallback for empty / whitespace-only response", () => {
+		// MiniMax-M3 burns its full budget on untracked reasoning and emits nothing
+		// visible — distinguish from parse failure so the log surfaces the real cause.
+		assert.deepEqual(parseVerdict(""), { risk: "medium", reason: EMPTY_RESPONSE_REASON });
+		assert.deepEqual(parseVerdict("   \n  \t  "), { risk: "medium", reason: EMPTY_RESPONSE_REASON });
+	});
+
+	// --- Hardened parser: cases the old single-regex fallback missed ---
+
+	it("parses verdict with reversed key order (reason before risk)", () => {
+		// Old regex required "risk" before "reason"; reversed order broke it.
+		const result = parseVerdict('{"reason":"moderate risk","risk":"medium"}');
+		assert.deepEqual(result, { risk: "medium", reason: "moderate risk" });
+	});
+
+	it("parses verdict wrapped in thinking prose", () => {
+		// Reasoning models (MiniMax-M3, DeepSeek-V4-Pro) wrap JSON in prose.
+		const result = parseVerdict(
+			'Thinking about this command... it modifies files outside CWD so it is medium risk.\n' +
+			'Here is my verdict: {"risk":"medium","reason":"affects paths outside CWD"} Done.',
+		);
+		assert.deepEqual(result, { risk: "medium", reason: "affects paths outside CWD" });
+	});
+
+	it("parses verdict when prose contains code-example braces", () => {
+		// Prose may include `function foo() { ... }` or `for i { x }` fragments.
+		// The scanner must still locate the real JSON object independently.
+		const result = parseVerdict(
+			'I considered `for i := 0; i < n; i++ { x }` but that is irrelevant.\n' +
+			'{"risk":"low","reason":"read-only loop in prose"}',
+		);
+		assert.deepEqual(result, { risk: "low", reason: "read-only loop in prose" });
+	});
+
+	it("parses verdict when a string value contains literal braces", () => {
+		// JSON string values may contain { or } (e.g. reasons quoting code/config).
+		// parseJsonWithRepair handles braces inside strings; the scanner must
+		// yield the full object span so the parser sees them in context.
+		const result = parseVerdict('{"risk":"low","reason":"touches only `{cwd}` var"}');
+		assert.deepEqual(result, { risk: "low", reason: "touches only `{cwd}` var" });
+	});
+
+	it("parses the first valid verdict when prose contains other JSON-like spans", () => {
+		// Model may emit an example object before the real verdict.
+		const result = parseVerdict(
+			'Example shape: {"foo":"bar"}. Actual verdict: {"risk":"high","reason":"irreversible"}',
+		);
+		assert.deepEqual(result, { risk: "high", reason: "irreversible" });
+	});
+
+	it("parses verdict embedded in a longer balanced-brace prose span", () => {
+		// Outer brace in prose pairs with a brace inside the JSON's reason string,
+		// so the first candidate span is prose+JSON and fails; the scanner must
+		// still try the inner JSON span starting at its own `{`.
+		const result = parseVerdict(
+			'Here { is some prose with a } char and then ' +
+			'{"risk":"medium","reason":"nested object literal"} follows.',
+		);
+		assert.deepEqual(result, { risk: "medium", reason: "nested object literal" });
+	});
+
+	it("exports PARSE_FAILURE_REASON and EMPTY_RESPONSE_REASON constants", () => {
+		// The handler compares verdict.reason to these to decide whether to attach
+		// the raw response to the log. They must stay string-equal to the values
+		// historical log entries and tests rely on.
+		assert.equal(PARSE_FAILURE_REASON, "Could not parse LLM verdict");
+		assert.equal(EMPTY_RESPONSE_REASON, "LLM returned empty response");
 	});
 });
 
@@ -225,6 +299,48 @@ describe("config plumbing", () => {
 	it("does NOT use compat entrypoint", () => {
 		assert.doesNotMatch(extensionSource, /from ["']@earendil-works\/pi-ai\/compat["']/);
 		assert.doesNotMatch(extensionSource, /\bcompleteSimple\s*\(/);
+	});
+
+	it("exports PARSE_FAILURE_REASON and EMPTY_RESPONSE_REASON constants", () => {
+		assert.match(extensionSource, /export const PARSE_FAILURE_REASON/);
+		assert.match(extensionSource, /export const EMPTY_RESPONSE_REASON/);
+	});
+
+	it("classifyCommand returns { verdict, rawResponse }", () => {
+		// The handler threads rawResponse to the log only on parse failure.
+		assert.match(extensionSource, /Promise<\{ verdict: Verdict; rawResponse: string \}>/);
+		assert.match(extensionSource, /return \{ verdict: parseVerdict\(responseText\), rawResponse: responseText \}/);
+	});
+
+	it("logCommandDecision accepts an optional rawResponse param", () => {
+		assert.match(extensionSource, /reason\?: string,\s*\n\s*rawResponse\?: string,\s*\n\): void/);
+		// rawResponse is attached to the log entry (capped at 2000 chars) ...
+		assert.match(extensionSource, /if \(rawResponse !== undefined\)/);
+		assert.match(extensionSource, /rawResponse\.length > 2000/);
+		assert.match(extensionSource, /\u2026\[truncated\]/);
+	});
+
+	it("handler only logs rawResponse on parse failure", () => {
+		// parseFailureRaw is undefined unless verdict.reason matches a parse-failure
+		// constant, so successful classifications don't bloat the log.
+		assert.match(extensionSource, /verdict\.reason === PARSE_FAILURE_REASON/);
+		assert.match(extensionSource, /verdict\.reason === EMPTY_RESPONSE_REASON/);
+		assert.match(extensionSource, /const parseFailureRaw/);
+	});
+
+	it("confirmWithUser threads rawResponse to its log calls", () => {
+		assert.match(
+			extensionSource,
+			/async function confirmWithUser\([\s\S]*?opts: ConfirmOptions,\s*\n\s*rawResponse\?: string,\s*\n\)/,
+		);
+		assert.match(
+			extensionSource,
+			/logCommandDecision\(command, opts\.risk, blockLevel, "blocked", opts\.blockedLogReason, rawResponse\)/,
+		);
+		assert.match(
+			extensionSource,
+			/logCommandDecision\(command, opts\.risk, blockLevel, "confirmed", opts\.confirmedLogReason, rawResponse\)/,
+		);
 	});
 });
 

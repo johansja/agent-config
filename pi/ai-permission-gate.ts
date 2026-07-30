@@ -567,9 +567,9 @@ export default function (pi: ExtensionAPI) {
 			}
 			return confirmWithUser(pi, ctx, command, blockLevel, {
 				risk: "unknown",
-				notifyBody: "Permission gate: awaiting input",
+				notifyBody: `Permission gate failed: ${errDetail}`,
 				promptTitle: "AI safety check failed",
-				promptBody: "The LLM could not classify this operation.",
+				promptBody: `The LLM could not classify this operation: ${errDetail}`,
 				blockedLogReason: "Blocked by user (AI check failed)",
 				confirmedLogReason: "User confirmed after AI check failed",
 				blockReason: "Blocked by user (AI check failed)",

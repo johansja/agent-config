@@ -82,29 +82,6 @@ Environment variables override settings.json:
 
 **Test:** `node --test pi/auto-session-name.test.mjs`
 
-## Subagents
-
-| Subagent | Description |
-|---|---|
-| `review` | Thin legwork reviewer (shared body across pi + opencode; frontmatter differs per agent schema). Invoking task sets scope and format; defers. Reads files, traces paths, runs tests only if asked. Reports only, does NOT fix. Spawned in parallel per-axis by the `code-review` skill; also usable after planning or implementation. |
-
-## Skills (shared)
-
-Skills are model-invoked capability packages following the [Agent Skills standard](https://agentskills.io). They trigger automatically when the task matches their description. Each lives under `skills/<name>/SKILL.md` and is symlinked into `~/.agents/skills/` — both pi and opencode load skills from there.
-
-| Skill | Description |
-|---|---|
-| `capture-lesson` | Record corrections and non-obvious gotchas to prevent repeated mistakes. |
-| `code-review` | Review changes along axes (Standards, Spec, Correctness, Security) as parallel `review` subagents, reported unmerged. |
-| `codebase-navigation` | Navigate and understand unfamiliar codebases. Composes with `codebase-design` (installed separately under `~/.agents/skills/`), `diagrams`, `domain-modeling`, and subagent templates (`scout`, `plan`). |
-| `cruft-hygiene` | Audit and remove session-cruft from durable artifacts before finalization. |
-| `diagnosing-bugs` | Diagnose hard bugs and performance regressions with a structured loop. |
-| `diagrams` | Draw Mermaid diagrams (flowchart, sequence, class, ER, state) when visualization is needed. |
-| `domain-modeling` | Build and sharpen domain terminology and ubiquitous language. Records glossary in `CONTEXT.md` and decisions in `docs/adr/`. |
-| `grilling` | Interview the user relentlessly about a plan, decision, or idea before implementation. |
-| `resolving-merge-conflicts` | Resolve an in-progress git merge/rebase conflict hunk by hunk, tracing each side's primary source. |
-| `tdd` | Test-driven development with a red → green loop, one vertical slice at a time. |
-
 ## Commands (shared)
 
 Slash-command templates (markdown with YAML frontmatter). Compatible with both pi (`prompts/`) and opencode (`commands/`). Each lives in `commands/<name>.md` and is symlinked into both `~/.pi/agent/prompts/` and `~/.config/opencode/commands/`.
@@ -115,68 +92,41 @@ Slash-command templates (markdown with YAML frontmatter). Compatible with both p
 
 ## Installation
 
+Clone, then symlink each artifact class to its deployment target:
+
 ```bash
 git clone <repo-url> ~/projects/agent-config
 cd ~/projects/agent-config
 
-# Pi extensions
-ln -sf "$PWD/pi/ai-permission-gate.ts" ~/.pi/agent/extensions/ai-permission-gate.ts
-ln -sf "$PWD/pi/auto-session-name.ts" ~/.pi/agent/extensions/auto-session-name.ts
-ln -sf "$PWD/pi/questionnaire.ts" ~/.pi/agent/extensions/questionnaire.ts
+# Pi extensions → ~/.pi/agent/extensions/ (extension files + the shared/ symlink)
+ln -sf "$PWD/pi/<ext>.ts" ~/.pi/agent/extensions/<ext>.ts
 ln -sf "$PWD/pi/shared" ~/.pi/agent/extensions/shared
 
-# Pi subagent templates
-ln -sf "$PWD/pi/agents/plan.md" ~/.pi/agent/agents/plan.md
-ln -sf "$PWD/pi/agents/review.md" ~/.pi/agent/agents/review.md
-ln -sf "$PWD/pi/agents/scout.md" ~/.pi/agent/agents/scout.md
-ln -sf "$PWD/pi/agents/general.md" ~/.pi/agent/agents/general.md
+# Pi subagent templates → ~/.pi/agent/agents/
+ln -sf "$PWD/pi/agents/<name>.md" ~/.pi/agent/agents/<name>.md
 
-# Skills (symlinked into ~/.agents/skills/ — both pi and opencode load skills from there)
-ln -sf "$PWD/skills/capture-lesson" ~/.agents/skills/capture-lesson
-ln -sf "$PWD/skills/code-review" ~/.agents/skills/code-review
-ln -sf "$PWD/skills/codebase-navigation" ~/.agents/skills/codebase-navigation
-ln -sf "$PWD/skills/cruft-hygiene" ~/.agents/skills/cruft-hygiene
-ln -sf "$PWD/skills/diagnosing-bugs" ~/.agents/skills/diagnosing-bugs
-ln -sf "$PWD/skills/diagrams" ~/.agents/skills/diagrams
-ln -sf "$PWD/skills/domain-modeling" ~/.agents/skills/domain-modeling
-ln -sf "$PWD/skills/grilling" ~/.agents/skills/grilling
-ln -sf "$PWD/skills/resolving-merge-conflicts" ~/.agents/skills/resolving-merge-conflicts
-ln -sf "$PWD/skills/tdd" ~/.agents/skills/tdd
+# OpenCode subagent templates → ~/.config/opencode/agents/
+ln -sf "$PWD/opencode/agents/<name>.md" ~/.config/opencode/agents/<name>.md
 
-# Pi global rules (canonical, shared with opencode below)
+# Skills → ~/.agents/skills/ (both pi and opencode load skills from there)
+ln -sf "$PWD/skills/<name>" ~/.agents/skills/<name>
+
+# Commands → BOTH ~/.pi/agent/prompts/ and ~/.config/opencode/commands/
+ln -sf "$PWD/commands/<name>.md" ~/.pi/agent/prompts/<name>.md
+ln -sf "$PWD/commands/<name>.md" ~/.config/opencode/commands/<name>.md
+
+# Global rules → BOTH ~/.pi/agent/AGENTS.md and ~/.config/opencode/AGENTS.md
 ln -sf "$PWD/global/AGENTS.md" ~/.pi/agent/AGENTS.md
-
-# OpenCode subagent
-ln -sf "$PWD/opencode/agents/review.md" ~/.config/opencode/agents/review.md
-
-# OpenCode global rules (same canonical file as pi side)
 ln -sf "$PWD/global/AGENTS.md" ~/.config/opencode/AGENTS.md
-
-# Commands (shared — symlinked into BOTH ~/.pi/agent/prompts/ and ~/.config/opencode/commands/)
-ln -sf "$PWD/commands/cruft-review.md" ~/.pi/agent/prompts/cruft-review.md
-ln -sf "$PWD/commands/fix-hard-violations.md" ~/.pi/agent/prompts/fix-hard-violations.md
-ln -sf "$PWD/commands/grill-with-docs.md" ~/.pi/agent/prompts/grill-with-docs.md
-ln -sf "$PWD/commands/improve-architecture.md" ~/.pi/agent/prompts/improve-architecture.md
-ln -sf "$PWD/commands/to-spec.md" ~/.pi/agent/prompts/to-spec.md
-ln -sf "$PWD/commands/wayfinder.md" ~/.pi/agent/prompts/wayfinder.md
-ln -sf "$PWD/commands/triage.md" ~/.pi/agent/prompts/triage.md
-ln -sf "$PWD/commands/writing-great-skills.md" ~/.pi/agent/prompts/writing-great-skills.md
-ln -sf "$PWD/commands/cruft-review.md" ~/.config/opencode/commands/cruft-review.md
-ln -sf "$PWD/commands/fix-hard-violations.md" ~/.config/opencode/commands/fix-hard-violations.md
-ln -sf "$PWD/commands/grill-with-docs.md" ~/.config/opencode/commands/grill-with-docs.md
-ln -sf "$PWD/commands/improve-architecture.md" ~/.config/opencode/commands/improve-architecture.md
-ln -sf "$PWD/commands/to-spec.md" ~/.config/opencode/commands/to-spec.md
-ln -sf "$PWD/commands/wayfinder.md" ~/.config/opencode/commands/wayfinder.md
-ln -sf "$PWD/commands/triage.md" ~/.config/opencode/commands/triage.md
-ln -sf "$PWD/commands/writing-great-skills.md" ~/.config/opencode/commands/writing-great-skills.md
 ```
 
-The symlinks ensure edits in this repo are immediately reflected in pi and opencode without copying.
+Symlinks ensure edits land immediately in both agents without copying.
 
 ## References
 
 Derivation sources — consult when improving the corresponding artifacts.
 
+- **[Agent Skills standard](https://agentskills.io)** — the skills format this repo follows (`SKILL.md` with YAML frontmatter).
 - **[pi](https://github.com/earendil-works/pi)** — pi, the coding agent the extensions and prompts target.
 - **[opencode](https://opencode.ai)** — opencode, the coding agent whose subagent and global rules live here.
 - **[mattpocock/skills](https://github.com/mattpocock/skills)** (MIT) — production-ready Claude skills.

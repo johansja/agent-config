@@ -24,7 +24,7 @@ An index, not a store — one line per closed ticket; the decision lives only in
 ## Tickets (child issues; body = `## Question`)
 
 Label `wayfinder:<type>`:
-- **research** (AFK) — surface an external fact a decision waits on (`web_search`/`web_fetch`/files or `subagent`).
+- **research** (AFK) — surface an external fact a decision waits on; resolved by the `/research` skill.
 - **prototype** (HITL) — cheap rough artifact to react to; links the asset.
 - **grilling** (HITL) — one question at a time via `grilling`+`domain-modeling`. Default.
 - **task** (HITL/AFK) — manual work that unblocks a decision; resolved when done, answer records what was done + dependent facts.
@@ -39,7 +39,7 @@ Label `wayfinder:<type>`:
 2. Map the frontier via `grilling`, breadth-first. No fog? Way is clear; stop and ask how to proceed.
 3. Create the map: Destination + Notes filled, Decisions empty, fog sketched into Not-yet-specified.
 4. Create specifiable tickets; wire blockers in a second pass (ids needed first).
-5. Fire `research` subagents in parallel, each on a throwaway `research/<name>` branch with a context pointer from the ticket.
+5. Invoke the `/research` skill per research ticket in parallel, capturing findings on a throwaway `research/<name>` branch with a context pointer from the ticket.
 6. Stop — charting is one session, resolves nothing.
 
 ## Work (map ref)

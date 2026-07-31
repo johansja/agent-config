@@ -1,6 +1,8 @@
 # agent-config
 
-Source-of-truth for pi and opencode agent configuration, deployed by symlinking into `~/.pi/agent/` (pi) and `~/.config/opencode/` (opencode). This repo is NOT itself a pi or opencode project — files here are source-only; symlinks ensure edits land immediately in both agents without copying.
+Source-of-truth for pi, opencode, and Claude Code agent configuration, deployed by symlinking into `~/.pi/agent/` (pi), `~/.config/opencode/` (opencode), and `~/.claude/` (Claude Code). This repo is NOT itself a pi, opencode, or Claude Code project — files here are source-only; symlinks ensure edits land immediately in every agent without copying.
+
+Shared artifact classes (skills, commands, global rules) deploy to all three agents. Agent-specific artifacts differ: pi has TypeScript extensions; each agent's subagent templates use a different frontmatter schema, so they live in per-agent directories (`pi/agents/`, `opencode/agents/`, `claude/agents/`) sharing an identical body. Claude Code's built-in `general-purpose`, `Plan`, and `Explore` subagents cover pi's `general`/`plan`/`scout`, so only `review` (no built-in equivalent) is mirrored under `claude/agents/`.
 
 ## Structure
 
@@ -9,18 +11,21 @@ agent-config/
 ├── AGENTS.md                  # project-level instructions (this repo's own guidance)
 ├── README.md
 ├── global/
-│   └── AGENTS.md              # canonical global rules — symlinked by BOTH agents
-├── skills/                    # shared model-invoked skills — symlinked by BOTH agents
+│   └── AGENTS.md              # canonical global rules — symlinked by ALL agents
+├── skills/                    # shared model-invoked skills — symlinked by ALL agents
 │   └── <name>/SKILL.md        # each skill lives in its own subdir
-├── commands/                  # shared slash-command templates — symlinked by BOTH agents
+├── commands/                  # shared slash-command templates — symlinked by ALL agents
 ├── pi/                        # pi-specific artifacts
 │   ├── *.ts                   # single-file extensions (root of pi/)
 │   ├── *.mjs                  # tests alongside their extension
 │   ├── shared/                # helpers imported by extensions (no index/package.json)
 │   └── agents/                # subagent templates
-└── opencode/                  # opencode-specific artifacts
+├── opencode/                  # opencode-specific artifacts
+│   └── agents/
+│       └── review.md          # review subagent (body shared across agents; frontmatter differs per schema)
+└── claude/                    # Claude Code-specific artifacts
     └── agents/
-        └── review.md          # review subagent (body shared with pi/agents/review.md; frontmatter differs per agent schema)
+        └── review.md          # review subagent (body shared across agents; Claude frontmatter — PascalCase tools, model: inherit)
 ```
 
 `.pi/workflow/` (pi's live session state) rides with the repo but is gitignored and not deployed.
@@ -84,11 +89,11 @@ Environment variables override settings.json:
 
 ## Commands (shared)
 
-Slash-command templates (markdown with YAML frontmatter). Compatible with both pi (`prompts/`) and opencode (`commands/`). Each lives in `commands/<name>.md` and is symlinked into both `~/.pi/agent/prompts/` and `~/.config/opencode/commands/`.
+Slash-command templates (markdown with YAML frontmatter). Compatible with pi (`prompts/`), opencode (`commands/`), and Claude Code (`commands/`). Each lives in `commands/<name>.md` and is symlinked into `~/.pi/agent/prompts/`, `~/.config/opencode/commands/`, and `~/.claude/commands/`.
 
 ## Global rules (shared)
 
-`global/AGENTS.md` is the single canonical rules file. Both `~/.pi/agent/AGENTS.md` and `~/.config/opencode/AGENTS.md` symlink to it — same rules in both sessions. Editing it is the only way to change agent behavior across both agents in one step.
+`global/AGENTS.md` is the single canonical rules file. `~/.pi/agent/AGENTS.md`, `~/.config/opencode/AGENTS.md`, and `~/.claude/CLAUDE.md` all symlink to it — same rules in every session. (Claude Code's memory file is `CLAUDE.md`; the content is agent-agnostic markdown.) Editing it is the only way to change agent behavior across all agents in one step.
 
 ## Installation
 
@@ -108,16 +113,24 @@ ln -sf "$PWD/pi/agents/<name>.md" ~/.pi/agent/agents/<name>.md
 # OpenCode subagent templates → ~/.config/opencode/agents/
 ln -sf "$PWD/opencode/agents/<name>.md" ~/.config/opencode/agents/<name>.md
 
-# Skills → ~/.agents/skills/ (both pi and opencode load skills from there)
-ln -sf "$PWD/skills/<name>" ~/.agents/skills/<name>
+# Claude Code subagent templates → ~/.claude/agents/
+# (only agents with no Claude built-in equivalent — e.g. review;
+#  general/plan/scout are covered by built-in general-purpose/Plan/Explore)
+ln -sf "$PWD/claude/agents/<name>.md" ~/.claude/agents/<name>.md
 
-# Commands → BOTH ~/.pi/agent/prompts/ and ~/.config/opencode/commands/
+# Skills → ~/.agents/skills/ (pi + opencode) and ~/.claude/skills/ (Claude Code)
+ln -sf "$PWD/skills/<name>" ~/.agents/skills/<name>
+ln -sf "$PWD/skills/<name>" ~/.claude/skills/<name>
+
+# Commands → ~/.pi/agent/prompts/, ~/.config/opencode/commands/, ~/.claude/commands/
 ln -sf "$PWD/commands/<name>.md" ~/.pi/agent/prompts/<name>.md
 ln -sf "$PWD/commands/<name>.md" ~/.config/opencode/commands/<name>.md
+ln -sf "$PWD/commands/<name>.md" ~/.claude/commands/<name>.md
 
-# Global rules → BOTH ~/.pi/agent/AGENTS.md and ~/.config/opencode/AGENTS.md
+# Global rules → ~/.pi/agent/AGENTS.md, ~/.config/opencode/AGENTS.md, ~/.claude/CLAUDE.md
 ln -sf "$PWD/global/AGENTS.md" ~/.pi/agent/AGENTS.md
 ln -sf "$PWD/global/AGENTS.md" ~/.config/opencode/AGENTS.md
+ln -sf "$PWD/global/AGENTS.md" ~/.claude/CLAUDE.md
 ```
 
 Symlinks ensure edits land immediately in both agents without copying.

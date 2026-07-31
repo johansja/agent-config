@@ -127,10 +127,97 @@ export function riskLevelIndex(level: RiskLevel): number {
 	return RISK_LEVELS.indexOf(level);
 }
 
-export function truncateCommand(command: string, maxLines: number = 5): string {
-	const lines = command.split("\n");
-	if (lines.length <= maxLines) return command;
-	return lines.slice(0, maxLines).join("\n") + "\n…";
+/**
+ * Truncate a string to `max` characters, appending an ellipsis if cut.
+ * Used for the bash display signature (command prefix).
+ */
+export function truncateToChars(s: string, max: number): string {
+	if (s.length <= max) return s;
+	return s.slice(0, max) + "…";
+}
+
+/** Opaque ID-looking strings (UUIDs, Atlassian account IDs, hex hashes) — noise to a human reader. */
+const ID_LIKE_RE = /^[0-9a-fA-F-]{16,}$/;
+function isIdLike(s: string): boolean {
+	return s.length >= 16 && ID_LIKE_RE.test(s);
+}
+
+const SIG_VAL_MAX_CHARS = 60;
+
+/**
+ * Format a scalar arg value for the display signature, or undefined to drop it
+ * (objects, arrays, long strings, opaque IDs, empty values). Dropped values
+ * count toward the `+N more` suffix.
+ */
+function formatSmallValue(val: unknown): string | undefined {
+	if (typeof val === "boolean") return String(val);
+	if (typeof val === "number" && Number.isFinite(val)) return String(val);
+	if (typeof val === "string") {
+		if (val.length === 0) return undefined;
+		if (val.length > SIG_VAL_MAX_CHARS) return undefined;
+		if (isIdLike(val)) return undefined;
+		return JSON.stringify(val);
+	}
+	return undefined;
+}
+
+/** Parse `args` (object or JSON string) into a record, or undefined. */
+function parseArgsObject(args: unknown): Record<string, unknown> | undefined {
+	if (args && typeof args === "object" && !Array.isArray(args)) {
+		return args as Record<string, unknown>;
+	}
+	if (typeof args === "string" && args.trim()) {
+		try {
+			const parsed = parseJsonWithRepair(args);
+			if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+				return parsed as Record<string, unknown>;
+			}
+		} catch {
+			// not JSON — fall through
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Build a compact display signature for the permission prompt. The full command
+ * is already rendered by pi at execution time; this signature only needs to
+ * identify which operation this is (the link handle) and surface small scalar
+ * arg values. Long free-text values (e.g. a Jira ticket `description` body) and
+ * opaque IDs are dropped with a `+N more` count so the user knows the detail
+ * lives in pi's render. The classifier LLM still sees the full command — this
+ * is display-only.
+ */
+export function buildDisplaySignature(
+	toolName: string,
+	input: Record<string, unknown>,
+): string {
+	if (toolName === "bash") {
+		const cmd = (input?.command as string) ?? "";
+		return truncateToChars(cmd.replace(/\n/g, " "), 80);
+	}
+	if (toolName === "mcp") {
+		const server =
+			typeof input?.server === "string" && input.server.trim() ? input.server : undefined;
+		const tool =
+			typeof input?.tool === "string" && input.tool.trim() ? input.tool : "mcp";
+		const argsObj = parseArgsObject(input?.args);
+		const prefix = server ? `${server}/${tool}` : tool;
+		if (!argsObj) return prefix;
+		const keys = Object.keys(argsObj);
+		if (keys.length === 0) return prefix;
+		const parts: string[] = [];
+		let more = 0;
+		for (const k of keys) {
+			const v = formatSmallValue(argsObj[k]);
+			if (v !== undefined) parts.push(`${k}=${v}`);
+			else more++;
+		}
+		const moreSuffix = more > 0 ? `, +${more} more` : "";
+		if (parts.length === 0) return `${prefix}(+${more} more)`;
+		return `${prefix}(${parts.join(", ")}${moreSuffix})`;
+	}
+	return toolName;
 }
 
 export function stripCodeFences(raw: string): string {
@@ -484,6 +571,7 @@ async function confirmWithUser(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
 	command: string,
+	displaySignature: string,
 	blockLevel: RiskLevel,
 	opts: ConfirmOptions,
 	rawResponse?: string,
@@ -496,7 +584,7 @@ async function confirmWithUser(
 	});
 	try {
 		const choice = await ctx.ui.select(
-			`${icon} ${opts.promptTitle}\n\n  ${truncateCommand(command)}\n\n${opts.promptBody}\n\nAllow?`,
+			`${icon} ${opts.promptTitle}\n\n  ${displaySignature}\n\n${opts.promptBody}\n\nAllow?`,
 			["Yes", "No"],
 		);
 		if (choice !== "Yes") {
@@ -532,6 +620,17 @@ export default function (pi: ExtensionAPI) {
 		} else {
 			return undefined;
 		}
+
+		const signature = buildDisplaySignature(
+			event.toolName,
+			event.input as Record<string, unknown>,
+		);
+		const notifyLabel =
+			event.toolName === "mcp"
+				? (typeof event.input.tool === "string" && event.input.tool
+					? event.input.tool
+					: "mcp")
+				: event.toolName;
 
 		// Load settings from environment variables
 		const modelSpec = process.env.PI_AI_PERM_GATE_MODEL
@@ -622,7 +721,7 @@ export default function (pi: ExtensionAPI) {
 				logCommandDecision(command, "unknown", blockLevel, "allowed", "Fallback confirm without UI — allowed");
 				return undefined; // can't confirm in non-interactive mode, allow
 			}
-			return confirmWithUser(pi, ctx, command, blockLevel, {
+			return confirmWithUser(pi, ctx, command, signature, blockLevel, {
 				risk: "unknown",
 				notifyBody: `Permission gate failed: ${errDetail}`,
 				promptTitle: "AI safety check failed",
@@ -656,9 +755,9 @@ export default function (pi: ExtensionAPI) {
 				};
 			}
 
-			return confirmWithUser(pi, ctx, command, blockLevel, {
+			return confirmWithUser(pi, ctx, command, signature, blockLevel, {
 				risk: verdict.risk,
-				notifyBody: `Permission gate: ${verdict.risk} risk operation`,
+				notifyBody: `Permission gate: ${verdict.risk} risk — ${notifyLabel}`,
 				promptTitle: `Potentially dangerous operation (${verdict.risk} risk)`,
 				promptBody: verdict.reason,
 				blockedLogReason: "Blocked by user",

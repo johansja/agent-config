@@ -6,7 +6,7 @@
  * Two layers:
  *   - Pure helpers imported from the real extension module via jiti (same TS
  *     loader pi uses at runtime). Covers parseVerdict / riskLevelIndex /
- *     truncateCommand / stripCodeFences invariants.
+ *     buildDisplaySignature / truncateToChars / stripCodeFences invariants.
  *   - Source-shape assertions for config/env plumbing and the CWD-aware system
  *     prompt, plus behavioral emit-pairing for herdr:blocked.
  */
@@ -31,7 +31,8 @@ const extension = mod.default;
 const {
 	RISK_LEVELS,
 	riskLevelIndex,
-	truncateCommand,
+	truncateToChars,
+	buildDisplaySignature,
 	stripCodeFences,
 	parseVerdict,
 	PARSE_FAILURE_REASON,
@@ -207,40 +208,181 @@ describe("parseVerdict", () => {
 	});
 });
 
-describe("truncateCommand", () => {
-	it("returns the original string when ≤ 5 lines", () => {
-		const cmd = "line1\nline2\nline3\nline4\nline5";
-		assert.equal(truncateCommand(cmd), cmd);
+describe("truncateToChars", () => {
+	it("returns short string unchanged", () => {
+		assert.equal(truncateToChars("abc", 10), "abc");
 	});
 
-	it("truncates to 5 lines and appends \\n… when > 5 lines", () => {
-		const cmd = "line1\nline2\nline3\nline4\nline5\nline6";
-		const result = truncateCommand(cmd);
-		assert.equal(result, "line1\nline2\nline3\nline4\nline5\n…");
+	it("returns string of exactly max length unchanged", () => {
+		assert.equal(truncateToChars("abc", 3), "abc");
+	});
+
+	it("truncates to max chars and appends …", () => {
+		assert.equal(truncateToChars("abcdef", 3), "abc…");
 	});
 
 	it("handles an empty string", () => {
-		assert.equal(truncateCommand(""), "");
+		assert.equal(truncateToChars("", 80), "");
+	});
+});
+
+describe("buildDisplaySignature", () => {
+	// --- bash ---
+
+	it("bash: short command unchanged", () => {
+		assert.equal(buildDisplaySignature("bash", { command: "ls -la" }), "ls -la");
 	});
 
-	it("handles a single-line command", () => {
-		assert.equal(truncateCommand("ls -la"), "ls -la");
+	it("bash: long command truncated to 80 chars + …", () => {
+		const cmd = "x".repeat(100);
+		assert.equal(buildDisplaySignature("bash", { command: cmd }), "x".repeat(80) + "…");
 	});
 
-	it("handles a command with exactly 5 lines (should NOT append …)", () => {
-		const cmd = "a\nb\nc\nd\ne";
-		assert.equal(truncateCommand(cmd), cmd);
+	it("bash: newlines collapsed to spaces before truncation", () => {
+		// Multi-line command signature is a one-line prefix; newlines become spaces.
+		assert.equal(
+			buildDisplaySignature("bash", { command: "line1\nline2\nline3" }),
+			"line1 line2 line3",
+		);
 	});
 
-	it("handles a command with exactly 6 lines (should append …)", () => {
-		const cmd = "a\nb\nc\nd\ne\nf";
-		const result = truncateCommand(cmd);
-		assert.equal(result, "a\nb\nc\nd\ne\n…");
+	it("bash: empty command → empty string", () => {
+		assert.equal(buildDisplaySignature("bash", { command: "" }), "");
 	});
 
-	it("respects a custom maxLines parameter", () => {
-		const cmd = "a\nb\nc\nd";
-		assert.equal(truncateCommand(cmd, 3), "a\nb\nc\n…");
+	// --- mcp prefix ---
+
+	it("mcp: server present → server/tool prefix", () => {
+		assert.equal(buildDisplaySignature("mcp", { server: "exa", tool: "search" }), "exa/search");
+	});
+
+	it("mcp: server absent → tool only (absorbs server=undefined noise)", () => {
+		assert.equal(
+			buildDisplaySignature("mcp", { tool: "atlassian_createJiraIssue" }),
+			"atlassian_createJiraIssue",
+		);
+		assert.equal(buildDisplaySignature("mcp", { server: undefined, tool: "foo" }), "foo");
+	});
+
+	it("mcp: server/tool absent → 'mcp' fallback", () => {
+		assert.equal(buildDisplaySignature("mcp", {}), "mcp");
+	});
+
+	// --- mcp args: small values shown ---
+
+	it("mcp: small scalar values shown (string, number, bool)", () => {
+		assert.equal(
+			buildDisplaySignature("mcp", { tool: "foo", args: { a: "x", b: 1, c: true } }),
+			'foo(a="x", b=1, c=true)',
+		);
+	});
+
+	it("mcp: strings quoted; numbers/bools bare", () => {
+		assert.equal(
+			buildDisplaySignature("mcp", { tool: "foo", args: { s: "v", n: 42, b: false } }),
+			'foo(s="v", n=42, b=false)',
+		);
+	});
+
+	// --- mcp args: dropped values → +N more ---
+
+	it("mcp: long string dropped + counted in +N more", () => {
+		assert.equal(
+			buildDisplaySignature("mcp", { tool: "foo", args: { short: "ok", long: "x".repeat(100) } }),
+			'foo(short="ok", +1 more)',
+		);
+	});
+
+	it("mcp: object/array/null dropped + counted", () => {
+		assert.equal(
+			buildDisplaySignature("mcp", { tool: "foo", args: { obj: { a: 1 }, arr: [1, 2], nul: null, s: "k" } }),
+			'foo(s="k", +3 more)',
+		);
+	});
+
+	it("mcp: opaque IDs (UUID, Atlassian account ID, hex) dropped + counted", () => {
+		// Atlassian account ID (24 hex, no dashes)
+		assert.equal(
+			buildDisplaySignature("mcp", { tool: "foo", args: { id: "641a5e161273131f2ae21205", name: "n" } }),
+			'foo(name="n", +1 more)',
+		);
+		// Standard UUID
+		assert.equal(
+			buildDisplaySignature("mcp", { tool: "foo", args: { id: "3e3d218b-6aaf-41d8-8120-15bbe4bc7793", name: "n" } }),
+			'foo(name="n", +1 more)',
+		);
+	});
+
+	it("mcp: empty string value dropped + counted", () => {
+		assert.equal(
+			buildDisplaySignature("mcp", { tool: "foo", args: { empty: "", s: "k" } }),
+			'foo(s="k", +1 more)',
+		);
+	});
+
+	it("mcp: all values dropped → tool(+N more)", () => {
+		assert.equal(
+			buildDisplaySignature("mcp", { tool: "foo", args: { big: "x".repeat(100), obj: { a: 1 } } }),
+			"foo(+2 more)",
+		);
+	});
+
+	it("mcp: no +N more suffix when nothing dropped", () => {
+		assert.equal(
+			buildDisplaySignature("mcp", { tool: "foo", args: { a: "x" } }),
+			'foo(a="x")',
+		);
+	});
+
+	// --- mcp args shape ---
+
+	it("mcp: empty args object → prefix only (no parens)", () => {
+		assert.equal(buildDisplaySignature("mcp", { tool: "foo", args: {} }), "foo");
+	});
+
+	it("mcp: args as JSON string parsed like an object", () => {
+		const argsStr = JSON.stringify({ a: "x", b: { nested: true }, c: "y".repeat(100) });
+		assert.equal(
+			buildDisplaySignature("mcp", { tool: "foo", args: argsStr }),
+			'foo(a="x", +2 more)',
+		);
+	});
+
+	it("mcp: non-JSON args string → prefix only (can't extract)", () => {
+		assert.equal(buildDisplaySignature("mcp", { tool: "foo", args: "not json" }), "foo");
+	});
+
+	it("mcp: args undefined → prefix only", () => {
+		assert.equal(buildDisplaySignature("mcp", { tool: "foo" }), "foo");
+		assert.equal(buildDisplaySignature("mcp", { tool: "foo", args: undefined }), "foo");
+	});
+
+	// --- the motivating example (approximate) ---
+
+	it("mcp: createJiraIssue with a big description → compact signature", () => {
+		const args = {
+			additional_fields: { customfield_10014: "AIC-3250" },
+			assignee_account_id: "641a5e161273131f2ae21205",
+			cloudId: "3e3d218b-6aaf-41d8-8120-15bbe4bc7793",
+			contentFormat: "markdown",
+			description: "## Intent\n\nCAPI creates BitdeerAIMachine objects…".repeat(10),
+			issueTypeName: "Task",
+			projectKey: "AIC",
+			summary: "B2 nodepool_reconciler: set Cluster topology.workers (cluster_worker-VM)",
+		};
+		// Shown: contentFormat, issueTypeName, projectKey (small, non-ID).
+		// Dropped: additional_fields (object), assignee_account_id (hex ID),
+		//          cloudId (UUID), description (long), summary (>60 chars).
+		assert.equal(
+			buildDisplaySignature("mcp", { tool: "atlassian_createJiraIssue", args }),
+			'atlassian_createJiraIssue(contentFormat="markdown", issueTypeName="Task", projectKey="AIC", +5 more)',
+		);
+	});
+
+	// --- other tools ---
+
+	it("unknown toolName → just toolName", () => {
+		assert.equal(buildDisplaySignature("read", { path: "/x" }), "read");
 	});
 });
 
@@ -341,6 +483,34 @@ describe("config plumbing", () => {
 			extensionSource,
 			/logCommandDecision\(command, opts\.risk, blockLevel, "confirmed", opts\.confirmedLogReason, rawResponse\)/,
 		);
+	});
+
+	it("confirmWithUser takes a displaySignature param", () => {
+		assert.match(extensionSource, /displaySignature:\s*string/);
+	});
+
+	it("select prompt uses displaySignature, not truncateCommand", () => {
+		assert.match(extensionSource, /\$\{displaySignature\}/);
+		assert.doesNotMatch(extensionSource, /truncateCommand/);
+	});
+
+	it("exports buildDisplaySignature and truncateToChars", () => {
+		assert.match(extensionSource, /export function buildDisplaySignature/);
+		assert.match(extensionSource, /export function truncateToChars/);
+	});
+
+	it("handler builds signature from event.toolName + event.input", () => {
+		assert.match(extensionSource, /buildDisplaySignature\(\s*event\.toolName,\s*event\.input/);
+	});
+
+	it("handler passes signature to both confirmWithUser call sites", () => {
+		// fallback-confirm (classifier failed) and success-block both thread signature.
+		const matches = extensionSource.match(/confirmWithUser\(pi, ctx, command, signature, blockLevel/g) ?? [];
+		assert.equal(matches.length, 2, "expected signature at both call sites");
+	});
+
+	it("notify body carries the notifyLabel (tool name)", () => {
+		assert.match(extensionSource, /risk — \$\{notifyLabel\}/);
 	});
 });
 

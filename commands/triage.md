@@ -5,7 +5,7 @@ argument-hint: "[<query, issue key, or transition request>]"
 
 User input: $ARGUMENTS
 
-Default tracker: Jira via the atlassian MCP (`searchJiraIssuesUsingJql`, `getJiraIssue`, `addCommentToJiraIssue`, `transitionJiraIssue`, `getTransitionsForJiraIssue`, `editJiraIssue` for labels). Fall back to local-markdown (`.scratch/issues/NN-<slug>.md`) only with no Jira access.
+Default tracker: Jira via the atlassian MCP (`searchJiraIssuesUsingJql`, `getJiraIssue`, `addCommentToJiraIssue`, `transitionJiraIssue`, `getTransitionsForJiraIssue`, `editJiraIssue` for labels). Fall back to local-markdown (`.scratch/<feature-slug>/issues/<NN>-<slug>.md`) only with no Jira access.
 
 ## Roles — one category + one state per issue
 - Category: `bug` | `enhancement` — usually the Jira issue type; don't relabel.

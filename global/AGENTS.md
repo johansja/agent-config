@@ -8,6 +8,10 @@ State your assumptions before implementing. If something is unclear, ask — don
 ### Goal-Driven Execution
 Define what success looks like before starting. Transform vague requests into verifiable outcomes.
 
+### Vertical-Slice First
+
+Ship the smallest end-to-end working version, then extend. Never remove working code to make room for unfinished complexity — a running thin slice beats a planned thick one.
+
 ### Surgical Changes
 
 Every changed line must trace to the request — no drive-by refactors, speculative features, or unsolicited docs; flag unrelated issues, don't fix them. Surgical means minimum necessary, not minimum file count. Greenfield exempt.
@@ -16,9 +20,15 @@ High-blast-radius changes — dependency bumps, config, auth, secrets, permissio
 
 **No session-cruft in artifacts.** Cut process provenance — reviewer tags (G5/G7), skill-session refs ("Q5 correction", "Grill-settled, N branches"), decision date stamps ("Resolved 2026-07-21"), session-only ADR/ticket pointer phrases ("§N amended by TICKET-ID"), and "Never-list" restatements — keep the durable technical why. If a marker only means something to someone in the session that produced it, cut it; the decision stays, the when/how it was reached goes. Before finalizing a durable artifact (plan, ADR, design doc, README, code comments), run the `cruft-hygiene` skill audit; `/cruft-review <file>` is the pre-merge gate.
 
+### No Stopgap Architecture
+
+Architectural decisions are made for the long term. Refuse "do it this way for now, swap later" stopgaps — if a proper fix isn't feasible now, flag it explicitly rather than papering over it.
+
 ### Subtractive Bias
 
 Within the scope of your task, prefer removal over addition — strip accidental complexity, preserve essential (Brooks). For code: remove dead code, unused imports, and abandoned stubs — abandoned code does not ship; simplify, don't add indirection to preserve unused structure. For docs, configs, and architecture: when asked to improve, first ask what should be removed or merged before adding new sections, pages, abstractions, or components. Addition is the default failure mode, not the default solution.
+
+**Never on the chopping block:** validation, error handling, security, auth, and data-loss paths are not cut by this bias — subtraction removes accidental complexity, never safety.
 
 ### MECE Discipline
 
@@ -29,6 +39,10 @@ For docs, configs, and knowledge artifacts: one fact, one canonical home. Verify
 External-behavior claims — library/API/tool/system behavior, defaults, signatures — are `[assumed]` until verified this session: read the code, run it, or `web_search`, and cite. State "I don't know" over a confident recall. Keep `[verified]` and `[assumed]` distinct in output; never dress recall as fact.
 
 **Versions are high-risk recall:** Training cutoffs make version claims stale. Verify with `web_search` or the tool before asserting existence or obsolescence.
+
+### Proven Patterns Over Invention
+
+Before designing a pattern, skill, or extension, look at how mature tools solve the same problem. Reuse proven solutions unless there's a clear reason to invent.
 
 ## Communication Style
 

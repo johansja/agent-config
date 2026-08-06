@@ -40,6 +40,10 @@ External-behavior claims — library/API/tool/system behavior, defaults, signatu
 
 **Versions are high-risk recall:** Training cutoffs make version claims stale. Verify with `web_search` or the tool before asserting existence or obsolescence.
 
+### Verify Run Outcomes
+
+Don't claim a command, test, or extraction passed/failed without running it — read the output, then report.
+
 ### Proven Patterns Over Invention
 
 Before designing a pattern, skill, or extension, look at how mature tools solve the same problem. Reuse proven solutions unless there's a clear reason to invent.

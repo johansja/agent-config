@@ -60,7 +60,6 @@ import {
 	type ExtensionContext,
 	type ModelRegistry,
 } from "@earendil-works/pi-coding-agent";
-import { completeSimple } from "@earendil-works/pi-ai/compat";
 import type { Model, Api, Context } from "@earendil-works/pi-ai";
 
 // ---------------------------------------------------------------------------
@@ -373,7 +372,7 @@ async function resolveModel(
  */
 async function generateTitle(
 	model: Model<Api>,
-	apiKey: string | undefined,
+	modelRegistry: ModelRegistry,
 	user: string,
 	assistant: string,
 	timeoutMs: number,
@@ -404,8 +403,7 @@ async function generateTitle(
 	}
 
 	try {
-		const response = await completeSimple(model, context, {
-			apiKey,
+		const response = await modelRegistry.complete(model, context, {
 			signal: timeoutController.signal,
 		});
 
@@ -518,15 +516,10 @@ export default function (pi: ExtensionAPI) {
 				);
 			}
 
-			const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
-			if (!auth.ok) {
-				throw new Error(`no API key for ${model.provider}/${model.id}: ${auth.error}`);
-			}
-
 			debugLog(`naming with ${model.provider}/${model.id}`);
 			const rawTitle = await generateTitle(
 				model,
-				auth.apiKey,
+				ctx.modelRegistry,
 				convo.user,
 				convo.assistant,
 				config.timeoutMs,

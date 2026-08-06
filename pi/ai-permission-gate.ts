@@ -1,12 +1,12 @@
 /**
  * AI Permission Gate Extension
  *
- * Uses the pi-ai Provider.streamSimple() API (resolved via ctx.modelRegistry.getProvider)
- * to classify bash commands and MCP tool calls by risk level and require user confirmation
- * before executing potentially harmful ones. Auth (apiKey, headers, env) is resolved via
- * ctx.modelRegistry.getApiKeyAndHeaders and threaded in full so OAuth-only providers
- * (Claude Pro/Max, ChatGPT Plus, Copilot) and env-scoped provider configs classify
- * correctly, not just API-key providers.
+ * Uses ctx.modelRegistry.complete() (the coding-agent model runtime) to classify
+ * bash commands and MCP tool calls by risk level and require user confirmation
+ * before executing potentially harmful ones. The runtime resolves auth (apiKey,
+ * headers, env, baseUrl) and credential-resolved endpoints internally, so
+ * OAuth-only providers (Claude Pro/Max, ChatGPT Plus, Copilot) and env-scoped
+ * provider configs classify correctly, not just API-key providers.
  *
  * Instead of maintaining a long list of regex patterns, this extension
  * asks a fast, cheap model to judge each command. The LLM returns a
@@ -54,7 +54,6 @@ import {
 	type Model,
 	type Api,
 	type Context,
-	type Provider,
 	contentText,
 	parseJsonWithRepair,
 } from "@earendil-works/pi-ai";
@@ -466,17 +465,15 @@ async function resolveModel(
 }
 
 /**
- * Classify a tool operation using the pi-ai Provider.streamSimple() API.
- * Sends a single-shot LLM request with the safety classifier system prompt
- * and returns the parsed verdict. Awaits stream.result() for the final
- * AssistantMessage.
+ * Classify a tool operation via ctx.modelRegistry.complete(). Sends a
+ * single-shot LLM request with the safety classifier system prompt and
+ * returns the parsed verdict. The runtime resolves auth and endpoints.
  */
 async function classifyCommand(
 	command: string,
 	cwd: string,
 	model: Model<Api>,
-	provider: Provider<Api>,
-	auth: { apiKey?: string; headers?: Record<string, string>; env?: Record<string, string> },
+	modelRegistry: ModelRegistry,
 	timeout: number,
 	signal: AbortSignal | undefined,
 	options: { maxTokens?: number; temperature?: number },
@@ -517,18 +514,10 @@ async function classifyCommand(
 	}
 
 	try {
-		// provider.streamSimple(...).result() is the stable pi-ai surface.
-		// The pi-ai/compat completeSimple entrypoint is marked temporary and
-		// slated for removal during the ModelManager migration.
-		const response = await provider
-			.streamSimple(model, context, {
-				...options,
-				apiKey: auth.apiKey,
-				headers: auth.headers,
-				env: auth.env,
-				signal: timeoutController.signal,
-			})
-			.result();
+		const response = await modelRegistry.complete(model, context, {
+			...options,
+			signal: timeoutController.signal,
+		});
 
 		// Extract text from the assistant response
 		const responseText = contentText(response.content);
@@ -667,25 +656,11 @@ export default function (pi: ExtensionAPI) {
 				throw new Error("No model available for classification");
 			}
 
-			// Resolve provider and auth via the session's model registry. Thread
-			// apiKey AND headers/env so OAuth-only (Claude Pro/Max, ChatGPT Plus,
-			// Copilot) and env-scoped providers classify correctly, not just
-			// API-key providers.
-			const provider = ctx.modelRegistry.getProvider(model.provider);
-			if (!provider) {
-				throw new Error(`No provider registered for ${model.provider}`);
-			}
-			const authResult = await ctx.modelRegistry.getApiKeyAndHeaders(model);
-			if (!authResult.ok) {
-				throw new Error(`No API key for ${model.provider}/${model.id}: ${authResult.error}`);
-			}
-
 			const result = await classifyCommand(
 				command,
 				ctx.cwd,
 				model,
-				provider,
-				authResult,
+				ctx.modelRegistry,
 				timeout,
 				ctx.signal,
 				{

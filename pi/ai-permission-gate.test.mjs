@@ -430,12 +430,14 @@ describe("config plumbing", () => {
 		assert.match(extensionSource, /function readPermissionGateTimeout/);
 	});
 
-	it("resolves API key via ModelRegistry.getApiKeyAndHeaders", () => {
-		assert.match(extensionSource, /getApiKeyAndHeaders/);
+	it("classifies via ctx.modelRegistry.complete", () => {
+		assert.match(extensionSource, /ctx\.modelRegistry\.complete\(/);
 	});
 
-	it("uses Provider.streamSimple for classification", () => {
-		assert.match(extensionSource, /provider\s*\.\s*streamSimple\s*\(/);
+	it("does NOT resolve auth manually (runtime owns it)", () => {
+		assert.doesNotMatch(extensionSource, /getApiKeyAndHeaders/);
+		assert.doesNotMatch(extensionSource, /getProvider\(/);
+		assert.doesNotMatch(extensionSource, /provider\s*\.\s*streamSimple/);
 	});
 
 	it("does NOT use compat entrypoint", () => {
@@ -749,11 +751,7 @@ function makeMockCtx({ selectReturn }) {
 		cwd: process.cwd(),
 		model: undefined,
 		signal: undefined,
-		modelRegistry: {
-			async getApiKeyAndHeaders() {
-				return { ok: false, error: "mock: no api key" };
-			},
-		},
+		modelRegistry: {},
 		ui: {
 			notify() {},
 			async select(_prompt, _choices) {

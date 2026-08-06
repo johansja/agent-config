@@ -7,7 +7,7 @@ Review a diff along one or more **axes**, each as a parallel `review` subagent s
 
 ## 1. Acquire the diff
 
-- **MR/PR** (user names an id/URL): `glab mr view <id>` (title, desc, source branch, commits) + `glab mr diff <id>` — or `gh pr` for GitHub. Parse `<id>` from the first token.
+- **MR/PR** (user names an id/URL): `glab mr view <id>` (title, desc, source branch, commits) + `glab mr diff <id>` — or `gh pr` for GitHub. Parse `<id>` from the first token; if the token is a URL, extract the id from `/-/merge_requests/<id>` (or `!<id>`).
 - **Local** (files, commits, or range named; or nothing): `git diff <range>`; default `git diff HEAD`, fall back to `git diff HEAD~1` if empty.
 - Empty diff → stop, report.
 
@@ -44,7 +44,3 @@ One message, N subagent calls. Each `review` subagent is a thin legwork reviewer
 ## 5. Aggregate
 
 Lead with `## Changes` — one or two lines: files touched + net behaviour. Then each axis under its `## <Axis>` heading. End each axis with one line: total findings + worst issue (if any). Final `## Verdict` — single line: `PASS` or `FAIL`; FAIL if any Standards hard violation or any Spec finding, else PASS; one short clause of reason. **Do not merge or rerank across axes.**
-
-## 6. Posting
-
-Local by default; post nothing. If reviewing an MR/PR **and** the user asks to post, post **one comment per axis** (e.g. `glab mr note <id> -m "<axis-report>"`), never one merged comment. The verdict stays local, never posted.

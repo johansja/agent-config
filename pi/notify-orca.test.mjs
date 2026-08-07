@@ -1,7 +1,7 @@
 /**
- * Source-shape regression tests for notify.ts.
+ * Source-shape regression tests for notify-orca.ts.
  *
- * Run with: node --test pi/notify.test.mjs
+ * Run with: node --test pi/notify-orca.test.mjs
  *
  * Coverage focus: the Orca hook endpoint rotation fix. Orca rotates
  * ORCA_AGENT_HOOK_PORT / ORCA_AGENT_HOOK_TOKEN on every app restart and writes
@@ -19,7 +19,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 const notifySource = fs.readFileSync(
-	path.join(import.meta.dirname, "notify.ts"),
+	path.join(import.meta.dirname, "notify-orca.ts"),
 	"utf-8",
 );
 

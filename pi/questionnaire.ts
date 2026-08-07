@@ -104,8 +104,8 @@ export default function questionnaire(pi: ExtensionAPI) {
 			const statusText = `❓ ${questions.length} question${questions.length !== 1 ? "s" : ""}`;
 			const statusKey = "questionnaire";
 			// Open block: TUI footer pill (producer-owned, ctx-bound) + bus event
-			// (consumer fires the ctx-less transports). See pi/notify.ts for the
-			// contract; the open/close pair must stay balanced — the close fires
+			// (co-loaded user-input:blocked consumers fire the ctx-less transports).
+			// The open/close pair must stay balanced — the close fires
 			// in the .finally() after ctx.ui.custom resolves/rejects.
 			try {
 				const theme = ctx.ui.theme;
@@ -144,7 +144,8 @@ export default function questionnaire(pi: ExtensionAPI) {
 				}
 
 				// Reflect current mode + progress in the TUI footer pill (producer-owned transport).
-				// The cmux sidebar pill + OSC notify are fired once by the consumer (pi/notify.ts)
+				// The cmux sidebar pill + OSC notify are fired once by the co-loaded
+				// user-input:blocked consumers
 				// on the open emit and are not re-fired here. Glyph swaps per mode; count morphs
 				// to answered/total. Color stays accent; the glyph carries mode. notifyBody
 				// (user-input:blocked label) is set once at emit and unchanged.

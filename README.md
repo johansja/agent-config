@@ -33,7 +33,7 @@ agent-config/
 
 ### ai-permission-gate
 
-Uses an LLM (spawned as a child pi process) to classify bash commands by risk level before execution. Instead of maintaining regex patterns, a fast model judges each command with CWD-aware context — project-local operations are treated as less risky than system-wide equivalents.
+Uses an LLM via `ctx.modelRegistry.complete()` (the in-process coding-agent runtime) to classify bash commands by risk level before execution. Instead of maintaining regex patterns, a fast model judges each command with CWD-aware context — project-local operations are treated as less risky than system-wide equivalents.
 
 **Configuration (environment variables):**
 

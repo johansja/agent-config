@@ -11,18 +11,28 @@
  *     prompt.
  */
 
-import { createJiti } from "/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/jiti/lib/jiti.mjs";
+import { execSync } from "node:child_process";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-const PI = "/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent";
+// Resolve the pi install root: PI_ROOT env override, else npm global root.
+// import.meta.resolve can't reach globally-installed packages from the repo
+// (Node excludes global node_modules from script resolution), so discover via
+// npm root -g. Works across install locations (homebrew, nvm, volta, …).
+const PI_ROOT = process.env.PI_ROOT
+	|| path.join(execSync("npm root -g", { encoding: "utf8" }).trim(), "@earendil-works/pi-coding-agent");
+if (!fs.existsSync(PI_ROOT)) {
+	throw new Error(`pi-coding-agent not found at ${PI_ROOT}. Set PI_ROOT to its install path.`);
+}
+
+const { createJiti } = await import(path.join(PI_ROOT, "node_modules/jiti/lib/jiti.mjs"));
 
 const jiti = createJiti(import.meta.url, {
 	alias: {
-		"@earendil-works/pi-coding-agent": `${PI}/dist/index.js`,
-		"@earendil-works/pi-ai": `${PI}/node_modules/@earendil-works/pi-ai/dist/index.js`,
+		"@earendil-works/pi-coding-agent": `${PI_ROOT}/dist/index.js`,
+		"@earendil-works/pi-ai": `${PI_ROOT}/node_modules/@earendil-works/pi-ai/dist/index.js`,
 	},
 });
 

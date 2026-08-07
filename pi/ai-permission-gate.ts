@@ -554,9 +554,9 @@ interface ConfirmOptions {
 /**
  * Emit user-input:blocked (open) + set the TUI footer pill, then prompt the
  * user to allow/deny an operation. Wraps ctx.ui.select() in try/finally so the
- * close emit + pill clear always fire (user answer, abort, or error). The
- * consumer (pi/notify.ts) fires the ctx-less transports and re-emits
- * herdr:blocked. Returns {block:true} on denial, undefined on allow.
+ * close emit + pill clear always fire (user answer, abort, or error). A
+ * co-loaded user-input:blocked consumer fires the ctx-less transports.
+ * Returns {block:true} on denial, undefined on allow.
  */
 async function confirmWithUser(
 	pi: ExtensionAPI,
@@ -572,8 +572,8 @@ async function confirmWithUser(
 	const statusText = `${icon} awaiting input`;
 	const label = `${icon} ${opts.notifyBody}`;
 	// Open block: TUI footer pill (producer-owned, ctx-bound) + bus event
-	// (consumer fires the ctx-less transports). See pi/notify.ts for the
-	// contract; the open/close pair must stay balanced in this try/finally.
+	// (consumer fires the ctx-less transports). The open/close pair must stay
+	// balanced in this try/finally.
 	try {
 		try {
 			const theme = ctx.ui.theme;

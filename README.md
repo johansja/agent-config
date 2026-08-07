@@ -18,7 +18,6 @@ agent-config/
 ├── pi/                        # pi-specific artifacts
 │   ├── *.ts                   # single-file extensions (root of pi/)
 │   ├── *.mjs                  # tests alongside their extension
-│   ├── shared/                # helpers imported by extensions (no index/package.json)
 │   └── agents/                # subagent templates
 ├── opencode/                  # opencode-specific artifacts
 │   └── agents/
@@ -103,9 +102,8 @@ Clone, then symlink each artifact class to its deployment target:
 git clone <repo-url> ~/projects/agent-config
 cd ~/projects/agent-config
 
-# Pi extensions → ~/.pi/agent/extensions/ (extension files + the shared/ symlink)
+# Pi extensions → ~/.pi/agent/extensions/
 ln -sf "$PWD/pi/<ext>.ts" ~/.pi/agent/extensions/<ext>.ts
-ln -sf "$PWD/pi/shared" ~/.pi/agent/extensions/shared
 
 # Pi subagent templates → ~/.pi/agent/agents/
 ln -sf "$PWD/pi/agents/<name>.md" ~/.pi/agent/agents/<name>.md

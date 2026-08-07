@@ -1,7 +1,7 @@
 /**
- * Source-shape regression tests for shared/notify.ts.
+ * Source-shape regression tests for notify.ts.
  *
- * Run with: node --test pi/shared/notify.test.mjs
+ * Run with: node --test pi/notify.test.mjs
  *
  * Coverage focus: the Orca hook endpoint rotation fix. Orca rotates
  * ORCA_AGENT_HOOK_PORT / ORCA_AGENT_HOOK_TOKEN on every app restart and writes

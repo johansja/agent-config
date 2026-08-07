@@ -8,7 +8,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { blockStart, blockEnd } from "./shared/notify.ts";
+
 
 // Types
 interface QuestionOption {
@@ -102,7 +102,18 @@ export default function questionnaire(pi: ExtensionAPI) {
 
 			const notifyBody = `Questionnaire: ${questions.length} question${questions.length !== 1 ? "s" : ""}`;
 			const statusText = `❓ ${questions.length} question${questions.length !== 1 ? "s" : ""}`;
-			blockStart(pi, ctx, notifyBody, { key: "questionnaire", text: statusText, color: "accent" });
+			const statusKey = "questionnaire";
+			// Open block: TUI footer pill (producer-owned, ctx-bound) + bus event
+			// (consumer fires the ctx-less transports). See pi/notify.ts for the
+			// contract; the open/close pair must stay balanced — the close fires
+			// in the .finally() after ctx.ui.custom resolves/rejects.
+			try {
+				const theme = ctx.ui.theme;
+				if (theme?.fg) ctx.ui.setStatus(statusKey, theme.fg("accent", statusText));
+			} catch {
+				// pi-web: theme proxy can throw before initTheme — best-effort
+			}
+			pi.events.emit("user-input:blocked", { active: true, label: notifyBody, status: { key: statusKey, text: statusText } });
 			const result = await ctx.ui.custom<QuestionnaireResult>((tui, theme, _kb, done) => {
 				// State
 				let currentTab = 0;
@@ -132,9 +143,11 @@ export default function questionnaire(pi: ExtensionAPI) {
 					tui.requestRender();
 				}
 
-				// Reflect current mode + progress in the status pill (TUI footer + cmux sidebar + OSC).
-				// Glyph swaps per mode; count morphs to answered/total. Color stays accent; the
-				// glyph carries mode. notifyBody (herdr label) is set once at blockStart and unchanged.
+				// Reflect current mode + progress in the TUI footer pill (producer-owned transport).
+				// The cmux sidebar pill + OSC notify are fired once by the consumer (pi/notify.ts)
+				// on the open emit and are not re-fired here. Glyph swaps per mode; count morphs
+				// to answered/total. Color stays accent; the glyph carries mode. notifyBody
+				// (user-input:blocked label) is set once at emit and unchanged.
 				function updateStatus() {
 					const answered = answers.size;
 					const total = questions.length;
@@ -406,7 +419,14 @@ export default function questionnaire(pi: ExtensionAPI) {
 					},
 					handleInput,
 				};
-			}).finally(() => blockEnd(pi, ctx, "questionnaire"));
+			}).finally(() => {
+				try {
+					ctx.ui.setStatus?.(statusKey, undefined);
+				} catch {
+					// best-effort
+				}
+				pi.events.emit("user-input:blocked", { active: false, statusKey });
+			});
 
 			if (result.cancelled) {
 				return {

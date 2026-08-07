@@ -1,36 +1,80 @@
 /**
- * Shared blocking helpers for extensions that pause the agent waiting for user input.
+ * User-input block notification consumer.
  *
- * Used by ai-permission-gate (permission prompts) and questionnaire (multi-question
- * UI). Each block-start pairs with exactly one block-end via the caller's try/finally
- * or .finally(), and all four transports fire together, so a producer cannot forget
- * one and silently desync:
- *   - terminal notification: `cmux notify` when running under cmux (routes to
- *     the cmux notification panel, dock badge, and pane flash), else OSC 99/777
- *   - herdr:blocked event (so herdr tracks "agent paused on user input")
- *   - cmux sidebar status pill via `cmux set-status`/`clear-status` (keyed by
- *     the status key, so each extension manages its own entry; only under cmux)
- *   - TUI status-bar indicator (in-band footer label while the block is open)
+ * Subscribes to the `user-input:blocked` bus event and fires the ctx-less
+ * transports; also re-emits `herdr:blocked` for the external herdr consumer.
  *
- * Pass `ctx` and `status` to blockStart (and `ctx`/`statusKey` to blockEnd) to enable
- * the cmux sidebar pill and the status indicator; omit them for notify+herdr only.
+ * Glossary (canonical home for this contract):
+ *   block               — a user-input pause; opened/closed in paired try/finally
+ *   producer            — extension that opens a block (ai-permission-gate,
+ *                         questionnaire). Producers inline the open/close pair:
+ *                           open:  ctx.ui.setStatus(key, themedText)
+ *                                  pi.events.emit("user-input:blocked",
+ *                                      { active:true, label, status:{key,text} })
+ *                           close: ctx.ui.setStatus(key, undefined)
+ *                                  pi.events.emit("user-input:blocked",
+ *                                      { active:false, statusKey:key })
+ *                         No shared helper — keeping producers free of
+ *                         repo-local imports leaves ai-permission-gate.ts
+ *                         extraction-ready for a future standalone package.
+ *                         The pair-invariant is enforced by convention across
+ *                         two files; a third producer must copy the 4-line
+ *                         pattern correctly.
+ *   consumer            — this file; pi.events.on("user-input:blocked", …)
+ *   transport           — delivery channel. TUI footer pill = producer-owned
+ *                         (ctx-bound, set via ctx.ui.setStatus). OSC notify,
+ *                         cmux sidebar pill, Orca POST, herdr re-emit =
+ *                         consumer-owned (ctx-less, fired here).
+ *   user-input:blocked  — neutral bus event. Payload:
+ *                           { active:true,  label, status:{key,text} } on open
+ *                           { active:false, statusKey }              on close
+ *   herdr:blocked       — external contract event (consumer:
+ *                         herdr-agent-state.ts, installed by herdr outside
+ *                         this repo). Re-emitted here with {active,label}
+ *                         on open and {active:false} on close so that
+ *                         consumer is unchanged by this split.
+ *
+ * Transports fired per event:
+ *   - terminal notification: `cmux notify` under cmux (routes to the cmux
+ *     notification panel, dock badge, pane flash), else OSC 99/777.
+ *     NOTE: fires unconditionally regardless of ctx.mode — pre-existing
+ *     behavior preserved. Raw OSC in RPC mode could corrupt the JSON-RPC
+ *     stream; that is an existing issue out of scope for this refactor.
+ *   - herdr:blocked re-emit (so herdr tracks "agent paused on user input")
+ *   - Orca blocked-state POST to /hook/pi (synthetic ask_user_question
+ *     tool_call / tool_execution_end drives Orca's working↔blocked state)
+ *   - cmux sidebar status pill via `cmux set-status`/`clear-status`
+ *     (keyed by status.key; cmux only)
+ *
+ * Orca endpoint rotation: Orca rotates ORCA_AGENT_HOOK_PORT / _TOKEN on every
+ * app restart and writes the current coords to endpoint.env (path in
+ * ORCA_AGENT_HOOK_ENDPOINT, which does NOT rotate). postOrcaBlocked reads
+ * endpoint.env first and falls back to process.env — using process.env alone
+ * fails silently after Orca restarts because the inherited env points at a
+ * dead port and a rejected token. Mirrors orca-agent-status.ts.
  */
 
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-/** Status colors supported by pi's theme.fg(). */
-type StatusColor = "accent" | "muted" | "dim" | "warning" | "success";
-
-/** Status indicator spec passed to blockStart. */
+/** Status spec carried in user-input:blocked payload for the cmux sidebar pill. */
 export interface StatusSpec {
 	/** Stable key for the status slot, e.g. "ai-permission-gate". */
 	key: string;
-	/** Short text shown in the footer while the block is open. */
+	/** Short text shown in the cmux sidebar while the block is open. */
 	text: string;
-	/** Theme color name; defaults to "accent". */
-	color?: StatusColor;
+}
+
+/** user-input:blocked event payload. Mirrors producer emit. */
+export interface UserInputBlockedEvent {
+	active: boolean;
+	/** Label for the notification + herdr re-emit (open only). */
+	label?: string;
+	/** cmux sidebar pill spec (open only). */
+	status?: StatusSpec;
+	/** cmux sidebar pill key to clear (close only). */
+	statusKey?: string;
 }
 
 /**
@@ -69,25 +113,11 @@ function notify(title: string, body: string): void {
 }
 
 /**
- * Emit a herdr:blocked state change so herdr tracks "agent paused on user input".
- * Defensive: silently no-ops if pi.events is unavailable (e.g. herdr not installed,
- * or a future pi version without a shared EventBus). herdr maintains a counter,
- * so every active:true must pair with exactly one active:false.
- */
-function emitBlocked(pi: ExtensionAPI, active: boolean, label?: string): void {
-	try {
-		pi.events?.emit?.("herdr:blocked", { active, label });
-	} catch {
-		// Silently ignore if the events bus is unavailable
-	}
-}
-
-/**
  * Set a cmux sidebar status pill. Best-effort fire-and-forget: silently no-ops
  * when not under cmux (CMUX_SURFACE_ID unset) or if the spawn fails. Each
  * extension manages its own pill via a unique key, so this never collides with
  * cmux's bundled hook-driven pill or other extensions' pills. cmux clears the
- * pill on blockEnd via cmuxClearStatus with the same key. `hourglass` is the
+ * pill on close via cmuxClearStatus with the same key. `hourglass` is the
  * cmux Waiting convention.
  */
 function cmuxSetStatus(spec: StatusSpec): void {
@@ -114,37 +144,6 @@ function cmuxClearStatus(key: string): void {
 		});
 		child.on("error", () => {});
 		child.unref();
-	} catch {
-		// Silent
-	}
-}
-
-/**
- * Set a TUI status-bar indicator. Best-effort: silently no-ops if ctx.ui or
- * setStatus is unavailable (non-interactive mode, older pi, headless tests), or
- * if the theme proxy throws before initTheme (pi-web). Guards modeled on
- * ponytail's syncStatus.
- */
-function setStatus(ctx: ExtensionContext | undefined, spec: StatusSpec): void {
-	try {
-		if (!ctx?.ui?.setStatus) return;
-		let theme;
-		try {
-			theme = ctx.ui.theme;
-			if (!theme?.fg) return;
-		} catch {
-			return;
-		}
-		ctx.ui.setStatus(spec.key, theme.fg(spec.color ?? "accent", spec.text));
-	} catch {
-		// Silent: status is best-effort, never block the extension
-	}
-}
-
-/** Clear a TUI status-bar indicator previously set by setStatus. */
-function clearStatus(ctx: ExtensionContext | undefined, key: string): void {
-	try {
-		ctx?.ui?.setStatus?.(key, undefined);
 	} catch {
 		// Silent
 	}
@@ -237,39 +236,19 @@ function postOrcaBlocked(active: boolean, label?: string): void {
 	}).then(() => {}, () => {}).finally(() => clearTimeout(timeout));
 }
 
-/**
- * Begin a user-input block: fire the terminal notification, emit
- * herdr:blocked active:true, signal Orca's blocked state, set the cmux
- * sidebar pill, and set the TUI status indicator — all from one call, so
- * no transport can be forgotten. Caller MUST call blockEnd exactly once
- * (in a finally clause) to release them.
- */
-export function blockStart(
-	pi: ExtensionAPI,
-	ctx: ExtensionContext | undefined,
-	label: string,
-	status?: StatusSpec,
-): void {
-	notify("Pi", label);
-	emitBlocked(pi, true, label);
-	postOrcaBlocked(true, label);
-	if (status) cmuxSetStatus(status);
-	if (ctx && status) setStatus(ctx, status);
-}
-
-/**
- * End a user-input block: emit herdr:blocked active:false, release Orca's
- * blocked state, clear the cmux sidebar pill, and clear the TUI status
- * indicator if a status key was given. Pair with blockStart in try/finally
- * or .finally() so the state is always released on submit, cancel, or error.
- */
-export function blockEnd(
-	pi: ExtensionAPI,
-	ctx?: ExtensionContext,
-	statusKey?: string,
-): void {
-	emitBlocked(pi, false);
-	postOrcaBlocked(false);
-	if (statusKey) cmuxClearStatus(statusKey);
-	if (ctx && statusKey) clearStatus(ctx, statusKey);
+export default function (pi: ExtensionAPI) {
+	pi.events.on("user-input:blocked", (data: unknown) => {
+		const evt = data as UserInputBlockedEvent | undefined;
+		if (!evt) return;
+		if (evt.active) {
+			notify("Pi", evt.label ?? "Awaiting input");
+			pi.events.emit("herdr:blocked", { active: true, label: evt.label });
+			postOrcaBlocked(true, evt.label);
+			if (evt.status) cmuxSetStatus(evt.status);
+		} else {
+			pi.events.emit("herdr:blocked", { active: false });
+			postOrcaBlocked(false);
+			if (evt.statusKey) cmuxClearStatus(evt.statusKey);
+		}
+	});
 }

@@ -59,7 +59,7 @@ import {
 } from "@earendil-works/pi-ai";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { blockStart, blockEnd } from "./shared/notify.ts";
+
 
 // Risk levels, ordered from least to most severe
 export const RISK_LEVELS = ["safe", "low", "medium", "high"] as const;
@@ -552,9 +552,11 @@ interface ConfirmOptions {
 }
 
 /**
- * Notify + emit herdr:blocked + prompt the user to allow/deny an operation.
- * Wraps ctx.ui.select() in try/finally so the blocked state is always released
- * (user answer, abort, or error). Returns {block:true} on denial, undefined on allow.
+ * Emit user-input:blocked (open) + set the TUI footer pill, then prompt the
+ * user to allow/deny an operation. Wraps ctx.ui.select() in try/finally so the
+ * close emit + pill clear always fire (user answer, abort, or error). The
+ * consumer (pi/notify.ts) fires the ctx-less transports and re-emits
+ * herdr:blocked. Returns {block:true} on denial, undefined on allow.
  */
 async function confirmWithUser(
 	pi: ExtensionAPI,
@@ -566,12 +568,20 @@ async function confirmWithUser(
 	rawResponse?: string,
 ): Promise<{ block: true; reason: string } | undefined> {
 	const icon = RISK_ICON[opts.risk];
-	blockStart(pi, ctx, `${icon} ${opts.notifyBody}`, {
-		key: "ai-permission-gate",
-		text: `${icon} awaiting input`,
-		color: "accent",
-	});
+	const statusKey = "ai-permission-gate";
+	const statusText = `${icon} awaiting input`;
+	const label = `${icon} ${opts.notifyBody}`;
+	// Open block: TUI footer pill (producer-owned, ctx-bound) + bus event
+	// (consumer fires the ctx-less transports). See pi/notify.ts for the
+	// contract; the open/close pair must stay balanced in this try/finally.
 	try {
+		try {
+			const theme = ctx.ui.theme;
+			if (theme?.fg) ctx.ui.setStatus(statusKey, theme.fg("accent", statusText));
+		} catch {
+			// pi-web: theme proxy can throw before initTheme — best-effort
+		}
+		pi.events.emit("user-input:blocked", { active: true, label, status: { key: statusKey, text: statusText } });
 		const choice = await ctx.ui.select(
 			`${icon} ${opts.promptTitle}\n\n  ${displaySignature}\n\n${opts.promptBody}\n\nAllow?`,
 			["Yes", "No"],
@@ -583,7 +593,12 @@ async function confirmWithUser(
 		logCommandDecision(command, opts.risk, blockLevel, "confirmed", opts.confirmedLogReason, rawResponse);
 		return undefined;
 	} finally {
-		blockEnd(pi, ctx, "ai-permission-gate");
+		try {
+			ctx.ui.setStatus?.(statusKey, undefined);
+		} catch {
+			// best-effort
+		}
+		pi.events.emit("user-input:blocked", { active: false, statusKey });
 	}
 }
 

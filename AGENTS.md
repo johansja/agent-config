@@ -27,7 +27,7 @@ This repo is the source-of-truth for pi, opencode, and Claude Code agent artifac
 - Each extension exports a default function: `export default function(pi: ExtensionAPI) { ... }`.
 - Use `pi.on("tool_call", ...)` for tool call hooks, `pi.registerTool(...)` for custom tools, `pi.registerCommand(...)` for slash commands.
 - Prefer environment variables for configuration (prefixed with `PI_`).
-- Keep extensions self-contained — do not cross-import between extensions.
+- Keep extensions self-contained — do not cross-import between extensions (ADR: [docs/adr/0001](docs/adr/0001-extensions-independently-deployable.md) — each extension is independently deployable; cross-extension duplication is intentional).
 - Write tests as `.mjs` files using Node.js built-in `node:test` and `node:assert/strict`. Run from repo root: `node --test pi/<name>.test.mjs`.
 
 ## References

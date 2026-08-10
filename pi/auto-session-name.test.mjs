@@ -1,109 +1,52 @@
 /**
  * Tests for the auto-session-name pure helpers.
  *
- * Run with: node --test auto-session-name.test.mjs
+ * Run with: node --test pi/auto-session-name.test.mjs
  *
- * These tests cover extractText(), countUserMessages(), buildConversationInput(),
- * and sanitizeTitle() — the deterministic logic that doesn't require an LLM call.
+ * Covers extractText(), countUserMessages(), buildConversationInput(),
+ * sanitizeTitle(), and SYSTEM_PROMPT — the deterministic logic that doesn't
+ * require an LLM call.
  *
- * The functions under test are inlined here (rather than imported) because the
- * extension is a .ts file with side effects (registers pi event handlers at
- * import time). This matches the convention used by ai-permission-gate.test.mjs:
- * keep tests self-contained and make it obvious what's being tested. If you
- * change the implementation in auto-session-name.ts, update the inlined copies
- * here to match.
+ * The functions under test are imported from the real extension module via
+ * jiti (same TS loader pi uses at runtime), mirroring ai-permission-gate
+ * .test.mjs. The extension's side effects live inside its default-exported
+ * function (pi.on handlers registered at call time, not import time), so
+ * jiti.import is safe. Previously these helpers were inlined as copies here;
+ * that let the real code drift out of sync undetected — the imports close
+ * that hole.
  */
 
+import { execSync } from "node:child_process";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-// ---------------------------------------------------------------------------
-// Inlined copies of the pure functions under test (keep in sync with
-// auto-session-name.ts).
-// ---------------------------------------------------------------------------
-
-function extractText(content) {
-	if (typeof content === "string") return content;
-	if (!Array.isArray(content)) return "";
-
-	const parts = [];
-	for (const part of content) {
-		if (!part || typeof part !== "object") continue;
-		if (part.type === "text" && typeof part.text === "string") {
-			parts.push(part.text);
-		}
-	}
-	return parts.join("\n");
+// Resolve the pi install root: PI_ROOT env override, else npm global root.
+// Mirror of ai-permission-gate.test.mjs's bootstrap.
+const PI_ROOT = process.env.PI_ROOT
+	|| path.join(execSync("npm root -g", { encoding: "utf8" }).trim(), "@earendil-works/pi-coding-agent");
+if (!fs.existsSync(PI_ROOT)) {
+	throw new Error(`pi-coding-agent not found at ${PI_ROOT}. Set PI_ROOT to its install path.`);
 }
 
-function countUserMessages(entries) {
-	let count = 0;
-	for (const entry of entries) {
-		if (entry.type === "message" && entry.message?.role === "user") {
-			count++;
-		}
-	}
-	return count;
-}
+const { createJiti } = await import(path.join(PI_ROOT, "node_modules/jiti/lib/jiti.mjs"));
 
-function buildConversationInput(entries, maxPerMessage = 800) {
-	let userText = "";
-	let assistantText = "";
-	let sawUser = false;
-	let sawAssistant = false;
+const jiti = createJiti(import.meta.url, {
+	alias: {
+		"@earendil-works/pi-coding-agent": `${PI_ROOT}/dist/index.js`,
+		"@earendil-works/pi-ai": `${PI_ROOT}/node_modules/@earendil-works/pi-ai/dist/index.js`,
+	},
+});
 
-	for (const entry of entries) {
-		if (entry.type !== "message" || !entry.message?.role) continue;
-		const role = entry.message.role;
-
-		if (role === "user" && !sawUser) {
-			const text = extractText(entry.message.content).trim();
-			if (text) {
-				sawUser = true;
-				userText = text.slice(0, maxPerMessage);
-			}
-		} else if (role === "assistant" && !sawAssistant) {
-			const text = extractText(entry.message.content).trim();
-			if (text) {
-				sawAssistant = true;
-				assistantText = text.slice(0, maxPerMessage);
-			}
-		}
-
-		if (sawUser && sawAssistant) break;
-	}
-
-	if (!sawUser || !sawAssistant) return null;
-	return { user: userText, assistant: assistantText };
-}
-
-function sanitizeTitle(raw, maxChars) {
-	const THINK_OPEN = "<" + "think>";
-	const THINK_CLOSE = "<" + "/think>";
-
-	let text = raw;
-	const lastClose = text.lastIndexOf(THINK_CLOSE);
-	if (lastClose !== -1) {
-		text = text.slice(lastClose + THINK_CLOSE.length);
-	} else if (text.includes(THINK_OPEN)) {
-		return "";
-	}
-
-	text = text.trim();
-
-	text = text.replace(/^```[a-zA-Z]*\s*\n?/, "").replace(/\n?```\s*$/, "");
-	text = text.replace(/^["'`«»“”]+|["'`«»“”]+$/g, "");
-	text = text.replace(/\s+/g, " ").trim();
-	text = text.replace(/[.!?]+$/, "");
-
-	if (!text) return "";
-	if (text.length > maxChars) {
-		const cut = text.slice(0, maxChars);
-		const lastSpace = cut.lastIndexOf(" ");
-		text = (lastSpace > maxChars * 0.5 ? cut.slice(0, lastSpace) : cut).trim();
-	}
-	return text;
-}
+const mod = await jiti.import("./auto-session-name.ts");
+const {
+	extractText,
+	countUserMessages,
+	buildConversationInput,
+	sanitizeTitle,
+	SYSTEM_PROMPT,
+} = mod;
 
 // ---------------------------------------------------------------------------
 // extractText
@@ -503,7 +446,7 @@ describe("sanitizeTitle", () => {
 	});
 
 	it("does not strip uppercase think tags (matching is case-sensitive)", () => {
-		// Tag literals are lowercase ""; <THINK> is not
+		// Tag literals are lowercase <think></think>; <THINK> is not
 		// recognized, so the whole string passes through unchanged.
 		const raw = "<THINK>reasoning</THINK>actual answer";
 		assert.equal(sanitizeTitle(raw, 60), raw);
@@ -528,30 +471,10 @@ describe("sanitizeTitle", () => {
 });
 
 // ---------------------------------------------------------------------------
-// System prompt content (sanity check on the prompt we send to the model)
+// System prompt content (imported, not inlined — drift can't hide here)
 // ---------------------------------------------------------------------------
 
 describe("system prompt content", () => {
-	// Full inline copy of SYSTEM_PROMPT from auto-session-name.ts. If the
-	// prompt changes in the extension, update this copy and the assertions.
-	const SYSTEM_PROMPT = [
-		"You generate a short title that summarizes a coding-agent conversation.",
-		"The title will be shown in a session picker alongside many other titles,",
-		"so it must be concise and distinctive.",
-		"",
-		"Rules:",
-		"- 3 to 6 words.",
-		"- Plain text. No quotes, no trailing punctuation, no emoji.",
-		"- Lowercase unless a word is a proper noun (a library, framework, file",
-		"  name, or brand).",
-		"- Describe the task or topic, not the conversation meta",
-		"  (avoid \"chat about\", \"session for\", \"help with\").",
-		"- Prefer concrete nouns from the user's request (file paths, feature",
-		"  names, error messages).",
-		"",
-		"Reply with the title only.",
-	].join("\n");
-
 	it("asks for 3 to 6 words", () => {
 		assert.match(SYSTEM_PROMPT, /3 to 6 words/);
 	});

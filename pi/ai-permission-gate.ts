@@ -345,74 +345,34 @@ function logCommandDecision(
 }
 
 /**
- * Read the permissionGate.model setting from settings.json.
- * Returns undefined if not configured.
+ * Read the permissionGate block from settings.json in one read (one file
+ * read, one JSON parse per tool_call — not five). Returns the typed fields
+ * the caller derives config from; env-var precedence is applied by the
+ * caller, not here. Empty record if the block is absent.
  */
-function readPermissionGateModel(cwd: string, agentDir: string): string | undefined {
+interface PermissionGateConfig {
+	model?: string;
+	blockLevel?: RiskLevel;
+	maxTokens?: number;
+	temperature?: number;
+	timeout?: number;
+}
+
+function readPermissionGateConfig(cwd: string, agentDir: string): PermissionGateConfig {
 	const settingsManager = SettingsManager.create(cwd, agentDir);
 	// SettingsManager doesn't expose custom keys, so read the raw global settings
 	const globalSettings = settingsManager.getGlobalSettings() as Record<string, unknown>;
 	const gate = globalSettings.permissionGate as Record<string, unknown> | undefined;
-	if (gate && typeof gate.model === "string") {
-		return gate.model;
+	if (!gate) return {};
+	const config: PermissionGateConfig = {};
+	if (typeof gate.model === "string") config.model = gate.model;
+	if (typeof gate.blockLevel === "string" && RISK_LEVELS.includes(gate.blockLevel as RiskLevel)) {
+		config.blockLevel = gate.blockLevel as RiskLevel;
 	}
-	return undefined;
-}
-
-/**
- * Read the permissionGate.blockLevel setting from settings.json.
- * Returns undefined if not configured or invalid.
- */
-function readPermissionGateBlockLevel(cwd: string, agentDir: string): RiskLevel | undefined {
-	const settingsManager = SettingsManager.create(cwd, agentDir);
-	const globalSettings = settingsManager.getGlobalSettings() as Record<string, unknown>;
-	const gate = globalSettings.permissionGate as Record<string, unknown> | undefined;
-	if (gate && typeof gate.blockLevel === "string" && RISK_LEVELS.includes(gate.blockLevel as RiskLevel)) {
-		return gate.blockLevel as RiskLevel;
-	}
-	return undefined;
-}
-
-/**
- * Read the permissionGate.maxTokens setting from settings.json.
- * Returns undefined if not configured or not a number.
- */
-function readPermissionGateMaxTokens(cwd: string, agentDir: string): number | undefined {
-	const settingsManager = SettingsManager.create(cwd, agentDir);
-	const globalSettings = settingsManager.getGlobalSettings() as Record<string, unknown>;
-	const gate = globalSettings.permissionGate as Record<string, unknown> | undefined;
-	if (gate && typeof gate.maxTokens === "number") {
-		return gate.maxTokens;
-	}
-	return undefined;
-}
-
-/**
- * Read the permissionGate.temperature setting from settings.json.
- * Returns undefined if not configured or not a number.
- */
-function readPermissionGateTemperature(cwd: string, agentDir: string): number | undefined {
-	const settingsManager = SettingsManager.create(cwd, agentDir);
-	const globalSettings = settingsManager.getGlobalSettings() as Record<string, unknown>;
-	const gate = globalSettings.permissionGate as Record<string, unknown> | undefined;
-	if (gate && typeof gate.temperature === "number") {
-		return gate.temperature;
-	}
-	return undefined;
-}
-
-/**
- * Read the permissionGate.timeout setting from settings.json.
- * Returns undefined if not configured or not a number.
- */
-function readPermissionGateTimeout(cwd: string, agentDir: string): number | undefined {
-	const settingsManager = SettingsManager.create(cwd, agentDir);
-	const globalSettings = settingsManager.getGlobalSettings() as Record<string, unknown>;
-	const gate = globalSettings.permissionGate as Record<string, unknown> | undefined;
-	if (gate && typeof gate.timeout === "number") {
-		return gate.timeout;
-	}
-	return undefined;
+	if (typeof gate.maxTokens === "number") config.maxTokens = gate.maxTokens;
+	if (typeof gate.temperature === "number") config.temperature = gate.temperature;
+	if (typeof gate.timeout === "number") config.timeout = gate.timeout;
+	return config;
 }
 
 /**
@@ -551,6 +511,148 @@ interface ConfirmOptions {
 	blockReason: string;
 }
 
+// ---------------------------------------------------------------------------
+// Pure decisions (extracted from the tool_call handler so the matrices are
+// behaviorally testable with no ExtensionAPI fake). The handler owns I/O only:
+// classify, log per the action's log fields, prompt via confirmWithUser, and
+// emit the block lifecycle. Each action carries the log-contract strings so
+// tests can lock them without mocking logCommandDecision.
+// ---------------------------------------------------------------------------
+
+/**
+ * Action returned by decideFallback when the classifier threw. The handler
+ * logs once per allow/block branch (confirm-path logging lives inside
+ * confirmWithUser) using the carried logDecision/logReason.
+ */
+export type FallbackAction =
+	| { kind: "allow"; logDecision: "allowed"; logReason: string }
+	| { kind: "block"; blockReason: string; logDecision: "blocked"; logReason: string }
+	| { kind: "confirm"; opts: ConfirmOptions };
+
+/**
+ * Action returned by decideThreshold when the classifier succeeded. logRawResponse
+ * flags whether the handler should attach rawResponse to the log (parse-failure
+ * only); the handler materializes rawForLog = logRawResponse ? rawResponse : undefined
+ * for the log call / confirmWithUser.
+ */
+export type ThresholdAction =
+	| { kind: "allow"; log: { risk: RiskLevel; decision: "allowed"; reason: string; logRawResponse: boolean } }
+	| { kind: "block"; blockReason: string; log: { risk: RiskLevel; decision: "blocked"; reason: string; logRawResponse: boolean } }
+	| { kind: "confirm"; opts: ConfirmOptions; logRawResponse: boolean };
+
+/**
+ * Pure fallback decision. config carries the three knobs that branch the
+ * matrix: fallback policy, hasUI, and blockLevel (for the logDecision/logReason
+ * fields). errDetail threads through to the confirm-prompt opts only.
+ *
+ * Six cells (fallback × hasUI):
+ *   allow                       → allow
+ *   block, !hasUI               → block (headless reason)
+ *   block, hasUI                → block (UI reason)
+ *   confirm, !hasUI             → block (headless can't prompt; safety-favoring)
+ *   confirm, hasUI              → confirm (unknown-risk prompt)
+ */
+export function decideFallback(
+	errDetail: string,
+	config: { blockLevel: RiskLevel; fallback: string; hasUI: boolean },
+): FallbackAction {
+	const { blockLevel, fallback, hasUI } = config;
+	if (fallback === "allow") {
+		return { kind: "allow", logDecision: "allowed", logReason: "Fallback allow after LLM failure" };
+	}
+	if (fallback === "block") {
+		if (!hasUI) {
+			return {
+				kind: "block",
+				blockReason: "Operation blocked: AI safety check failed",
+				logDecision: "blocked",
+				logReason: "Fallback block after LLM failure",
+			};
+		}
+		return {
+			kind: "block",
+			blockReason: "Operation blocked: AI safety check failed and fallback is set to block",
+			logDecision: "blocked",
+			logReason: "Fallback block after LLM failure",
+		};
+	}
+	// fallback === "confirm"
+	if (!hasUI) {
+		// Headless can't prompt, so block rather than silently allow — the
+		// safety-favoring choice when the classifier fails and confirmation is
+		// impossible. When in doubt and the user can't weigh in, block.
+		return {
+			kind: "block",
+			blockReason: "Operation blocked: AI safety check failed (headless mode cannot confirm)",
+			logDecision: "blocked",
+			logReason: "Fallback confirm without UI — blocked",
+		};
+	}
+	return {
+		kind: "confirm",
+		opts: {
+			risk: "unknown",
+			notifyBody: `Permission gate failed: ${errDetail}`,
+			promptTitle: "AI safety check failed",
+			promptBody: `The LLM could not classify this operation: ${errDetail}`,
+			blockedLogReason: "Blocked by user (AI check failed)",
+			confirmedLogReason: "User confirmed after AI check failed",
+			blockReason: "Blocked by user (AI check failed)",
+		},
+	};
+}
+
+/** logRawResponse rule: attach rawResponse to the log only on parse failure. */
+function shouldLogRawResponse(verdict: Verdict): boolean {
+	return verdict.reason === PARSE_FAILURE_REASON || verdict.reason === EMPTY_RESPONSE_REASON;
+}
+
+/**
+ * Pure threshold decision. config carries blockLevel and hasUI. The safe-edge
+ * carve-out (risk === "safe" → allow even at blockLevel="safe" threshold 0) is
+ * preserved and under test. rawResponse is NOT threaded here — the handler
+ * materializes rawForLog from logRawResponse + the classifyCommand result.
+ */
+export function decideThreshold(
+	verdict: Verdict,
+	config: { blockLevel: RiskLevel; hasUI: boolean; notifyLabel: string },
+): ThresholdAction {
+	const { blockLevel, hasUI, notifyLabel } = config;
+	const blockThreshold = riskLevelIndex(blockLevel);
+	const commandRisk = riskLevelIndex(verdict.risk);
+	const logRawResponse = shouldLogRawResponse(verdict);
+
+	const shouldBlock = commandRisk >= blockThreshold && verdict.risk !== "safe";
+	if (!shouldBlock) {
+		return {
+			kind: "allow",
+			log: { risk: verdict.risk, decision: "allowed", reason: verdict.reason, logRawResponse },
+		};
+	}
+
+	if (!hasUI) {
+		return {
+			kind: "block",
+			blockReason: `Permission gate blocked this operation (risk: ${verdict.risk}): ${verdict.reason}. Do not retry or work around it. Report exactly what you needed to run and why to your caller, then stop.`,
+			log: { risk: verdict.risk, decision: "blocked", reason: verdict.reason, logRawResponse },
+		};
+	}
+
+	return {
+		kind: "confirm",
+		opts: {
+			risk: verdict.risk,
+			notifyBody: `Permission gate: ${verdict.risk} risk — ${notifyLabel}`,
+			promptTitle: `Potentially dangerous operation (${verdict.risk} risk)`,
+			promptBody: verdict.reason,
+			blockedLogReason: "Blocked by user",
+			confirmedLogReason: verdict.reason,
+			blockReason: "Blocked by user",
+		},
+		logRawResponse,
+	};
+}
+
 /**
  * Emit user-input:blocked (open) + set the TUI footer pill, then prompt the
  * user to allow/deny an operation. Wraps ctx.ui.select() in try/finally so the
@@ -636,27 +738,26 @@ export default function (pi: ExtensionAPI) {
 					: "mcp")
 				: event.toolName;
 
-		// Load settings from environment variables
+		// Load settings: env var > settings.json > default. Read settings once;
+		// each field keeps its own env-var-first derivation.
+		const settings = readPermissionGateConfig(ctx.cwd, `${process.env.HOME}/.pi/agent`);
 		const modelSpec = process.env.PI_AI_PERM_GATE_MODEL
-			|| readPermissionGateModel(ctx.cwd, `${process.env.HOME}/.pi/agent`)
+			|| settings.model
 			|| undefined;
 		const blockLevel = (process.env.PI_AI_PERM_GATE_BLOCK_LEVEL as RiskLevel)
-			|| readPermissionGateBlockLevel(ctx.cwd, `${process.env.HOME}/.pi/agent`)
+			|| settings.blockLevel
 			|| "low";
-		const timeoutSetting = readPermissionGateTimeout(ctx.cwd, `${process.env.HOME}/.pi/agent`);
 		const timeoutRaw = parseInt(
-			process.env.PI_AI_PERM_GATE_TIMEOUT || String(timeoutSetting ?? 10000),
+			process.env.PI_AI_PERM_GATE_TIMEOUT || String(settings.timeout ?? 10000),
 			10,
 		);
 		const timeout = Number.isNaN(timeoutRaw) ? 10000 : timeoutRaw;
 		const fallback = process.env.PI_AI_PERM_GATE_FALLBACK || "confirm";
-		const maxTokensSetting = readPermissionGateMaxTokens(ctx.cwd, `${process.env.HOME}/.pi/agent`);
-		const maxTokensRaw = parseInt(process.env.PI_AI_PERM_GATE_MAX_TOKENS || String(maxTokensSetting ?? 128), 10);
+		const maxTokensRaw = parseInt(process.env.PI_AI_PERM_GATE_MAX_TOKENS || String(settings.maxTokens ?? 128), 10);
 		const maxTokens = Number.isNaN(maxTokensRaw) ? 128 : maxTokensRaw;
-		const temperatureSetting = readPermissionGateTemperature(ctx.cwd, `${process.env.HOME}/.pi/agent`);
 		const temperatureRaw = process.env.PI_AI_PERM_GATE_TEMPERATURE
 			? parseFloat(process.env.PI_AI_PERM_GATE_TEMPERATURE)
-			: temperatureSetting;
+			: settings.temperature;
 		const temperature = temperatureRaw !== undefined && !Number.isNaN(temperatureRaw)
 			? temperatureRaw
 			: undefined;
@@ -686,78 +787,38 @@ export default function (pi: ExtensionAPI) {
 			verdict = result.verdict;
 			rawResponse = result.rawResponse;
 		} catch (err) {
-			// LLM call failed - log and use fallback strategy
+			// LLM call failed — decide the fallback action (pure), then the handler
+			// does the I/O: one log per allow/block branch; confirm delegates to
+			// confirmWithUser (which logs blocked/confirmed itself).
 			const errDetail = err instanceof Error ? err.message : String(err);
 			console.error(`[ai-permission-gate] Classification failed: ${errDetail}`);
 			if (ctx.hasUI) {
 				ctx.ui.notify(`Permission gate error: ${errDetail}`, "error");
 			}
-			if (fallback === "allow") {
-				logCommandDecision(command, "unknown", blockLevel, "allowed", "Fallback allow after LLM failure");
+			const action = decideFallback(errDetail, { blockLevel, fallback, hasUI: ctx.hasUI });
+			if (action.kind === "allow") {
+				logCommandDecision(command, "unknown", blockLevel, action.logDecision, action.logReason);
 				return undefined;
 			}
-			if (fallback === "block") {
-				logCommandDecision(command, "unknown", blockLevel, "blocked", "Fallback block after LLM failure");
-				if (!ctx.hasUI) {
-					return { block: true, reason: "Operation blocked: AI safety check failed" };
-				}
-				return {
-					block: true,
-					reason: "Operation blocked: AI safety check failed and fallback is set to block",
-				};
+			if (action.kind === "block") {
+				logCommandDecision(command, "unknown", blockLevel, action.logDecision, action.logReason);
+				return { block: true, reason: action.blockReason };
 			}
-			// fallback === "confirm" - ask the user
-			if (!ctx.hasUI) {
-				logCommandDecision(command, "unknown", blockLevel, "allowed", "Fallback confirm without UI — allowed");
-				return undefined; // can't confirm in non-interactive mode, allow
-			}
-			return confirmWithUser(pi, ctx, command, signature, blockLevel, {
-				risk: "unknown",
-				notifyBody: `Permission gate failed: ${errDetail}`,
-				promptTitle: "AI safety check failed",
-				promptBody: `The LLM could not classify this operation: ${errDetail}`,
-				blockedLogReason: "Blocked by user (AI check failed)",
-				confirmedLogReason: "User confirmed after AI check failed",
-				blockReason: "Blocked by user (AI check failed)",
-			});
+			return confirmWithUser(pi, ctx, command, signature, blockLevel, action.opts);
 		}
 
-		// Attach the raw LLM response to the log only when the parser could not
-		// extract a verdict — so successful classifications do not bloat the log
-		// and failed parses leave a forensic trail for format-drift diagnosis.
-		const parseFailureRaw = (
-			verdict.reason === PARSE_FAILURE_REASON ||
-			verdict.reason === EMPTY_RESPONSE_REASON
-		)
-			? rawResponse
-			: undefined;
-
-		// Check if the risk level meets the block threshold
-		const blockThreshold = riskLevelIndex(blockLevel);
-		const commandRisk = riskLevelIndex(verdict.risk);
-
-		if (commandRisk >= blockThreshold && verdict.risk !== "safe") {
-			if (!ctx.hasUI) {
-				logCommandDecision(command, verdict.risk, blockLevel, "blocked", verdict.reason, parseFailureRaw);
-				return {
-					block: true,
-					reason: `Permission gate blocked this operation (risk: ${verdict.risk}): ${verdict.reason}. Do not retry or work around it. Report exactly what you needed to run and why to your caller, then stop.`,
-				};
-			}
-
-			return confirmWithUser(pi, ctx, command, signature, blockLevel, {
-				risk: verdict.risk,
-				notifyBody: `Permission gate: ${verdict.risk} risk — ${notifyLabel}`,
-				promptTitle: `Potentially dangerous operation (${verdict.risk} risk)`,
-				promptBody: verdict.reason,
-				blockedLogReason: "Blocked by user",
-				confirmedLogReason: verdict.reason,
-				blockReason: "Blocked by user",
-			}, parseFailureRaw);
-		} else {
-			logCommandDecision(command, verdict.risk, blockLevel, "allowed", verdict.reason, parseFailureRaw);
+		// Classifier succeeded — decide on the verdict (pure), then the handler
+		// does the I/O. rawForLog threads rawResponse only on parse failure.
+		const action = decideThreshold(verdict, { blockLevel, hasUI: ctx.hasUI, notifyLabel });
+		const rawForLog = action.logRawResponse ? rawResponse : undefined;
+		if (action.kind === "allow") {
+			logCommandDecision(command, action.log.risk, blockLevel, action.log.decision, action.log.reason, rawForLog);
+			return undefined;
 		}
-
-		return undefined;
+		if (action.kind === "block") {
+			logCommandDecision(command, action.log.risk, blockLevel, action.log.decision, action.log.reason, rawForLog);
+			return { block: true, reason: action.blockReason };
+		}
+		return confirmWithUser(pi, ctx, command, signature, blockLevel, action.opts, rawForLog);
 	});
 }

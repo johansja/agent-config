@@ -47,6 +47,8 @@ const {
 	parseVerdict,
 	PARSE_FAILURE_REASON,
 	EMPTY_RESPONSE_REASON,
+	decideFallback,
+	decideThreshold,
 } = mod;
 
 // ---------------------------------------------------------------------------
@@ -428,16 +430,8 @@ describe("config plumbing", () => {
 		assert.match(extensionSource, /PI_AI_PERM_GATE_TIMEOUT/);
 	});
 
-	it("has readPermissionGateMaxTokens function", () => {
-		assert.match(extensionSource, /function readPermissionGateMaxTokens/);
-	});
-
-	it("has readPermissionGateTemperature function", () => {
-		assert.match(extensionSource, /function readPermissionGateTemperature/);
-	});
-
-	it("has readPermissionGateTimeout function", () => {
-		assert.match(extensionSource, /function readPermissionGateTimeout/);
+	it("has readPermissionGateConfig function (consolidated single read)", () => {
+		assert.match(extensionSource, /function readPermissionGateConfig/);
 	});
 
 	it("classifies via ctx.modelRegistry.complete", () => {
@@ -474,12 +468,14 @@ describe("config plumbing", () => {
 		assert.match(extensionSource, /\u2026\[truncated\]/);
 	});
 
-	it("handler only logs rawResponse on parse failure", () => {
-		// parseFailureRaw is undefined unless verdict.reason matches a parse-failure
-		// constant, so successful classifications don't bloat the log.
-		assert.match(extensionSource, /verdict\.reason === PARSE_FAILURE_REASON/);
-		assert.match(extensionSource, /verdict\.reason === EMPTY_RESPONSE_REASON/);
-		assert.match(extensionSource, /const parseFailureRaw/);
+	it("decideThreshold owns the parse-failure log rule (behaviorally tested above)", () => {
+		// The parse-failure log-attachment rule moved from an inline parseFailureRaw
+		// block in the handler into decideThreshold (via shouldLogRawResponse).
+		// Source-shape guard is demoted to a contract pointer; the matrix is locked
+		// by the decideThreshold behavior tests.
+		assert.match(extensionSource, /function decideThreshold/);
+		assert.match(extensionSource, /PARSE_FAILURE_REASON/);
+		assert.match(extensionSource, /EMPTY_RESPONSE_REASON/);
 	});
 
 	it("confirmWithUser threads rawResponse to its log calls", () => {
@@ -595,6 +591,177 @@ describe("CWD-aware system prompt content", () => {
 describe("extension load", () => {
 	it("default export is a function", () => {
 		assert.equal(typeof extension, "function");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// decideFallback — pure decision matrix (classifier threw)
+// 6 cells: fallback ∈ {allow, block, confirm} × hasUI {true, false}
+// ---------------------------------------------------------------------------
+
+describe("decideFallback", () => {
+	const cfg = (overrides) => ({
+		blockLevel: "low",
+		fallback: "confirm",
+		hasUI: true,
+		...overrides,
+	});
+
+	it("allow → allow action with log-contract reason", () => {
+		const a = decideFallback("boom", cfg({ fallback: "allow" }));
+		assert.deepEqual(a, {
+			kind: "allow",
+			logDecision: "allowed",
+			logReason: "Fallback allow after LLM failure",
+		});
+	});
+
+	it("block + hasUI → block with UI reason", () => {
+		const a = decideFallback("boom", cfg({ fallback: "block", hasUI: true }));
+		assert.equal(a.kind, "block");
+		assert.equal(a.logDecision, "blocked");
+		assert.equal(a.logReason, "Fallback block after LLM failure");
+		assert.equal(
+			a.blockReason,
+			"Operation blocked: AI safety check failed and fallback is set to block",
+		);
+	});
+
+	it("block + !hasUI → block with headless reason", () => {
+		const a = decideFallback("boom", cfg({ fallback: "block", hasUI: false }));
+		assert.equal(a.kind, "block");
+		assert.equal(a.logDecision, "blocked");
+		assert.equal(a.logReason, "Fallback block after LLM failure");
+		assert.equal(a.blockReason, "Operation blocked: AI safety check failed");
+	});
+
+	it("confirm + hasUI → confirm with unknown-risk opts embedding errDetail", () => {
+		const a = decideFallback("kaboom: detail", cfg({ fallback: "confirm", hasUI: true }));
+		assert.equal(a.kind, "confirm");
+		assert.equal(a.opts.risk, "unknown");
+		assert.equal(a.opts.notifyBody, "Permission gate failed: kaboom: detail");
+		assert.equal(a.opts.promptTitle, "AI safety check failed");
+		assert.equal(a.opts.promptBody, "The LLM could not classify this operation: kaboom: detail");
+		assert.equal(a.opts.blockedLogReason, "Blocked by user (AI check failed)");
+		assert.equal(a.opts.confirmedLogReason, "User confirmed after AI check failed");
+		assert.equal(a.opts.blockReason, "Blocked by user (AI check failed)");
+	});
+
+	it("confirm + !hasUI → block (headless cannot prompt; safety-favoring block)", () => {
+		// Headless mode can't prompt, so block rather than silently allow when the
+		// classifier fails. Safety-favoring: when in doubt and the user can't weigh
+		// in, block. This is the default fallback (confirm), so headless
+		// classifier-failures fail-closed, not fail-open.
+		const a = decideFallback("boom", cfg({ fallback: "confirm", hasUI: false }));
+		assert.equal(a.kind, "block");
+		assert.equal(a.logDecision, "blocked");
+		assert.equal(a.logReason, "Fallback confirm without UI — blocked");
+		assert.equal(a.blockReason, "Operation blocked: AI safety check failed (headless mode cannot confirm)");
+	});
+
+	it("blockLevel threads through but does not branch the matrix", () => {
+		// blockLevel is carried for the log; the fallback matrix is fallback × hasUI only.
+		const aLow = decideFallback("boom", cfg({ fallback: "block", hasUI: true, blockLevel: "low" }));
+		const aHigh = decideFallback("boom", cfg({ fallback: "block", hasUI: true, blockLevel: "high" }));
+		assert.equal(aLow.blockReason, aHigh.blockReason);
+		assert.equal(aLow.logReason, aHigh.logReason);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// decideThreshold — pure decision matrix (classifier succeeded)
+// safe-edge + logRawResponse rule + block/confirm/allow branches
+// ---------------------------------------------------------------------------
+
+describe("decideThreshold", () => {
+	const cfg = (overrides) => ({
+		blockLevel: "low",
+		hasUI: true,
+		notifyLabel: "bash",
+		...overrides,
+	});
+	const ok = { risk: "low", reason: "minor" };
+	const parseFail = { risk: "medium", reason: PARSE_FAILURE_REASON };
+	const emptyFail = { risk: "medium", reason: EMPTY_RESPONSE_REASON };
+
+	it("allow when risk below threshold", () => {
+		const a = decideThreshold({ risk: "safe", reason: "read-only" }, cfg({ blockLevel: "low" }));
+		assert.equal(a.kind, "allow");
+		assert.equal(a.log.risk, "safe");
+		assert.equal(a.log.decision, "allowed");
+		assert.equal(a.log.reason, "read-only");
+		assert.equal(a.log.logRawResponse, false);
+	});
+
+	it("block + hasUI=false → block with the do-not-retry reason", () => {
+		const a = decideThreshold({ risk: "high", reason: "irreversible" }, cfg({ blockLevel: "low", hasUI: false }));
+		assert.equal(a.kind, "block");
+		assert.equal(a.log.risk, "high");
+		assert.equal(a.log.decision, "blocked");
+		assert.equal(a.log.reason, "irreversible");
+		assert.match(
+			a.blockReason,
+			/Permission gate blocked this operation \(risk: high\): irreversible\. Do not retry/,
+		);
+	});
+
+	it("block + hasUI=true → confirm with risk-scoped opts and notifyLabel", () => {
+		const a = decideThreshold({ risk: "medium", reason: "moderate" }, cfg({ blockLevel: "low", hasUI: true, notifyLabel: "atlassian_createIssue" }));
+		assert.equal(a.kind, "confirm");
+		assert.equal(a.opts.risk, "medium");
+		assert.equal(a.opts.notifyBody, "Permission gate: medium risk — atlassian_createIssue");
+		assert.equal(a.opts.promptTitle, "Potentially dangerous operation (medium risk)");
+		assert.equal(a.opts.promptBody, "moderate");
+		assert.equal(a.opts.blockedLogReason, "Blocked by user");
+		assert.equal(a.opts.confirmedLogReason, "moderate");
+		assert.equal(a.opts.blockReason, "Blocked by user");
+	});
+
+	// --- safe-edge carve-out (preserved + under test) ---
+
+	it("safe-edge: blockLevel=safe + risk=safe → allow (carve-out prevents false block at threshold 0)", () => {
+		// Without the `&& risk !== "safe"` guard, 0 >= 0 would wrongly block.
+		const a = decideThreshold({ risk: "safe", reason: "read-only" }, cfg({ blockLevel: "safe" }));
+		assert.equal(a.kind, "allow");
+		assert.equal(a.log.logRawResponse, false);
+	});
+
+	it("safe-edge: blockLevel=safe + risk=low → block (threshold 0, non-safe risk meets it)", () => {
+		const a = decideThreshold({ risk: "low", reason: "minor" }, cfg({ blockLevel: "safe", hasUI: false }));
+		assert.equal(a.kind, "block");
+	});
+
+	// --- logRawResponse rule (parse-failure only) ---
+
+	it("logRawResponse=true when verdict.reason is PARSE_FAILURE_REASON", () => {
+		const a = decideThreshold(parseFail, cfg({ blockLevel: "low", hasUI: false }));
+		assert.equal(a.kind, "block");
+		assert.equal(a.log.logRawResponse, true);
+	});
+
+	it("logRawResponse=true when verdict.reason is EMPTY_RESPONSE_REASON", () => {
+		const a = decideThreshold(emptyFail, cfg({ blockLevel: "low", hasUI: false }));
+		assert.equal(a.kind, "block");
+		assert.equal(a.log.logRawResponse, true);
+	});
+
+	it("logRawResponse=false for a normal reason (no raw bloat)", () => {
+		const a = decideThreshold({ risk: "medium", reason: "moderate" }, cfg({ blockLevel: "low", hasUI: false }));
+		assert.equal(a.kind, "block");
+		assert.equal(a.log.logRawResponse, false);
+	});
+
+	it("confirm action carries logRawResponse for parse-failure verdicts", () => {
+		const a = decideThreshold(parseFail, cfg({ blockLevel: "low", hasUI: true }));
+		assert.equal(a.kind, "confirm");
+		assert.equal(a.logRawResponse, true);
+	});
+
+	it("confirm action logRawResponse=false for normal reason", () => {
+		const a = decideThreshold(ok, cfg({ blockLevel: "low", hasUI: true }));
+		// risk=low at blockLevel=low: 1 >= 1 → confirm path
+		assert.equal(a.kind, "confirm");
+		assert.equal(a.logRawResponse, false);
 	});
 });
 

@@ -156,7 +156,7 @@ function loadConfig(cwd: string): Config {
  * Extract plain text from a message's content (string or content-block array).
  * Returns the concatenated text, or "" if no text blocks are present.
  */
-function extractText(content: unknown): string {
+export function extractText(content: unknown): string {
 	if (typeof content === "string") return content;
 	if (!Array.isArray(content)) return "";
 
@@ -175,7 +175,7 @@ function extractText(content: unknown): string {
  * Count user messages in a list of session entries. Used to detect whether
  * a session is brand-new (0 prior user messages) at session_start time.
  */
-function countUserMessages(entries: SessionEntry[]): number {
+export function countUserMessages(entries: SessionEntry[]): number {
 	let count = 0;
 	for (const entry of entries) {
 		if (entry.type === "message" && entry.message?.role === "user") {
@@ -190,7 +190,7 @@ function countUserMessages(entries: SessionEntry[]): number {
  * first assistant reply. Both are truncated to keep the LLM call cheap.
  * Returns null if there is no user message or no assistant message yet.
  */
-function buildConversationInput(
+export function buildConversationInput(
 	entries: SessionEntry[],
 	maxPerMessage = 800,
 ): { user: string; assistant: string } | null {
@@ -224,7 +224,7 @@ function buildConversationInput(
 	return { user: userText, assistant: assistantText };
 }
 
-const SYSTEM_PROMPT = [
+export const SYSTEM_PROMPT = [
 	"You generate a short title that summarizes a coding-agent conversation.",
 	"The title will be shown in a session picker alongside many other titles,",
 	"so it must be concise and distinctive.",
@@ -269,7 +269,7 @@ function buildUserPrompt(user: string, assistant: string): string {
  *   - truncate to maxChars at a word boundary
  * Returns "" if nothing usable remains.
  */
-function sanitizeTitle(raw: string, maxChars: number): string {
+export function sanitizeTitle(raw: string, maxChars: number): string {
 	// Strip thinking-model reasoning blocks. Built via concatenation so the
 	// source has no literal think-tag sequence (avoids tooling/transport issues).
 	const THINK_OPEN = "<" + "think>";

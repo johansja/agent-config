@@ -33,20 +33,7 @@ agent-config/
 
 ### ai-permission-gate
 
-Uses an LLM via `ctx.modelRegistry.complete()` (the in-process coding-agent runtime) to classify bash commands by risk level before execution. Instead of maintaining regex patterns, a fast model judges each command with CWD-aware context — project-local operations are treated as less risky than system-wide equivalents.
-
-**Configuration (environment variables):**
-
-| Variable | Default | Description |
-|---|---|---|
-| `PI_AI_PERM_GATE_MODEL` | pi's default | Model to use for classification |
-| `PI_AI_PERM_GATE_BLOCK_LEVEL` | `low` | Minimum risk level to block: `low` \| `medium` \| `high` |
-| `PI_AI_PERM_GATE_TIMEOUT` | `10000` | Timeout in ms for the LLM call |
-| `PI_AI_PERM_GATE_FALLBACK` | `confirm` | What to do if LLM fails: `allow` \| `block` \| `confirm` |
-
-**Install:** Symlink `pi/ai-permission-gate.ts` into `~/.pi/agent/extensions/`.
-
-**Test:** `node --test pi/ai-permission-gate.test.mjs`
+→ Moved to its own repo: [johansja/pi-permission-gate](https://github.com/johansja/pi-permission-gate). Install via `pi install git:github.com/johansja/pi-permission-gate`.
 
 ### auto-session-name
 

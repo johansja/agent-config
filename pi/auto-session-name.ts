@@ -24,7 +24,7 @@
  * Configuration (precedence: env var > settings.json > default):
  *
  *   ~/.pi/agent/settings.json "autoSessionName" block (global only, mirroring
- *   the permissionGate pattern in ai-permission-gate.ts):
+ *   the permissionGate pattern):
  *     {
  *       "autoSessionName": {
  *         "model": "bitdeerai/MiniMaxAI/MiniMax-M3",
@@ -101,8 +101,8 @@ function isTruthyEnv(v: string | undefined): boolean {
 /**
  * Read the "autoSessionName" block from the global settings.json. Returns the
  * block as a plain object, or undefined if unset/malformed. Mirrors the
- * permissionGate read pattern in ai-permission-gate.ts (global settings only;
- * project-local settings.json is not honored, matching that extension).
+ * permissionGate read pattern (global settings only; project-local
+ * settings.json is not honored).
  */
 function readSettingsBlock(cwd: string, agentDir: string): Record<string, unknown> | undefined {
 	const settingsManager = SettingsManager.create(cwd, agentDir);
@@ -308,7 +308,7 @@ export function sanitizeTitle(raw: string, maxChars: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Model resolution (mirrors ai-permission-gate.ts)
+// Model resolution
 // ---------------------------------------------------------------------------
 
 /**

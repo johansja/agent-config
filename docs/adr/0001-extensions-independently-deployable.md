@@ -15,8 +15,7 @@ intentional — the cost paid for independent deployability. Consolidation
 *within* a single extension remains in scope; consolidation *across* extensions
 does not.
 
-The `// mirrors …` comments between extensions (e.g. `resolveModel` in
-`ai-permission-gate.ts` ↔ `auto-session-name.ts`) are the accepted drift signal,
+The `// mirrors …` comments between extensions are the accepted drift signal,
 not a smell to remove.
 
 ## Consequences

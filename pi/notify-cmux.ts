@@ -21,7 +21,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 /** Status spec carried in user-input:blocked payload for the cmux sidebar pill. */
 interface StatusSpec {
-	/** Stable key for the status slot, e.g. "ai-permission-gate". */
+	/** Stable key for the status slot, e.g. "my-extension". */
 	key: string;
 	/** Short text shown in the cmux sidebar while the block is open. */
 	text: string;

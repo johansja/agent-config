@@ -77,8 +77,7 @@ function resolveHookCoords() {
 
 /**
  * Signal Orca the agent is blocked on user input (or released). No-op outside
- * an Orca pane; fire-and-forget with a 1s abort. Why: Pi's
- * questionnaire/ai-permission-gate are not in Orca's ask_user_question
+ * an Orca pane; fire-and-forget with a 1s abort. Why: Pi's questionnaire is not in Orca's ask_user_question
  * recognize-list, so a synthetic ask_user_question tool_call drives Orca's pi
  * state machine working → blocked; tool_execution_end drives blocked → working.
  * Reads endpoint.env so the post survives Orca restarts that rotate the hook

@@ -8,8 +8,7 @@
  * require an LLM call.
  *
  * The functions under test are imported from the real extension module via
- * jiti (same TS loader pi uses at runtime), mirroring ai-permission-gate
- * .test.mjs. The extension's side effects live inside its default-exported
+ * jiti (same TS loader pi uses at runtime). The extension's side effects live inside its default-exported
  * function (pi.on handlers registered at call time, not import time), so
  * jiti.import is safe. Previously these helpers were inlined as copies here;
  * that let the real code drift out of sync undetected — the imports close
@@ -23,7 +22,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 // Resolve the pi install root: PI_ROOT env override, else npm global root.
-// Mirror of ai-permission-gate.test.mjs's bootstrap.
 const PI_ROOT = process.env.PI_ROOT
 	|| path.join(execSync("npm root -g", { encoding: "utf8" }).trim(), "@earendil-works/pi-coding-agent");
 if (!fs.existsSync(PI_ROOT)) {

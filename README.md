@@ -92,6 +92,13 @@ cd ~/projects/agent-config
 # Pi extensions → ~/.pi/agent/extensions/
 ln -sf "$PWD/pi/<ext>.ts" ~/.pi/agent/extensions/<ext>.ts
 
+# Pi subagent extension — symlinked straight to pi's upstream example
+# (no local copy; tracks the installed pi package automatically)
+PI_EXAMPLES="$(npm root -g)/@earendil-works/pi-coding-agent/examples/extensions/subagent"
+mkdir -p ~/.pi/agent/extensions/subagent
+ln -sf "$PI_EXAMPLES/agents.ts" ~/.pi/agent/extensions/subagent/agents.ts
+ln -sf "$PI_EXAMPLES/index.ts" ~/.pi/agent/extensions/subagent/index.ts
+
 # Pi subagent templates → ~/.pi/agent/agents/
 ln -sf "$PWD/pi/agents/<name>.md" ~/.pi/agent/agents/<name>.md
 

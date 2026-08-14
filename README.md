@@ -54,7 +54,7 @@ Set a cheaper model in `~/.pi/agent/settings.json` (same file as `permissionGate
 ```json
 {
   "autoSessionName": {
-    "model": "bitdeerai/MiniMaxAI/MiniMax-M3"
+    "model": "bitdeerai/deepseek-ai/DeepSeek-V4-Pro"
   }
 }
 ```

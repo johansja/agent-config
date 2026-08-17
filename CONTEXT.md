@@ -14,7 +14,7 @@ a pi/opencode/Claude Code project.
   Judgement; stays at the skill.
 - **Fetch** — the subagent's phase: run the resolved diff command and gather its
   own per-axis inputs (standards files, MR description, etc.). Legwork; moves
-  down to the `review` subagent (DeepSeek-V4-Pro).
+  down to the `review` subagent.
 - **Exploration** — in the `review` subagent's context, the scope where the
   subagent fetches its own diff and per-axis inputs from a resolved handle, and
   may trace code paths beyond the diff to judge a finding. Not open-ended

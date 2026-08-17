@@ -30,6 +30,8 @@ Within the scope of your task, prefer removal over addition — strip accidental
 
 **Never on the chopping block:** validation, error handling, security, auth, and data-loss paths are not cut by this bias — subtraction removes accidental complexity, never safety.
 
+**Deletion pass before done.** Before declaring an implementation complete, run the `simplify` skill's deletion pass over the change; apply `cut` verdicts, list the rest.
+
 ### MECE Discipline
 
 For docs, configs, and knowledge artifacts: one fact, one canonical home. Verify a multi-file change to these is complete — every artifact that needs it, no fact restated across two. Cross-reference, don't restate. Not a code-DRY rule.

@@ -24,6 +24,18 @@ a pi/opencode/Claude Code project.
   or linked `Closes #N` / `Resolves #N`) *before* spawning the Spec subagent;
   skip the axis if none, so no spawn is spent on an axis that will self-skip.
 
+### Deletion pass (simplify skill ↔ grilling ↔ global rules)
+
+- **Deletion pass** — the `simplify` skill's procedure: enumerate candidate
+  deletions in the just-written change, trace each to the requirement that
+  dies if it's cut, apply `cut` verdicts, list `keep`/`judgment-call` for the
+  human. Runs before implementation is declared done (auto-trigger via global
+  rules) or on demand.
+- **Solution-shape grilling** — the grilling skill's plan-time counterpart of
+  the deletion pass: for each component or abstraction in a proposed plan, ask
+  which requirement dies if it's cut; cut orphans before they're written.
+  Complexity is cheapest to delete at plan time.
+
 ### Artifact classes
 
 See `README.md` for the canonical tree. Glossary entries only where a term

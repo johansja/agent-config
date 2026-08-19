@@ -3,4 +3,4 @@ description: Pre-merge session-cruft audit. Runs cruft-hygiene over a file or MR
 argument-hint: "<file|mr>"
 ---
 
-Load `cruft-hygiene` and run its pre-merge audit on **$1**. Apply `cut` verdicts; list `keep`/`judgment-call` for the human. Do not commit — leave the working tree dirty.
+Load `cruft-hygiene` and run its pre-merge audit on **$ARGUMENTS**. Apply `cut` verdicts; list `keep`/`judgment-call` for the human. Do not commit — leave the working tree dirty.

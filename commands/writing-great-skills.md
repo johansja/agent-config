@@ -25,7 +25,7 @@ Distinct uses of a skill are **branches**. Inline what every branch needs; push 
 
 ## Command-specific (beyond skills)
 
-- Parse `$ARGUMENTS` up front; advertise shape in `argument-hint`.
+- Parse `$ARGUMENTS` up front — positional `$N` is non-portable (pi/opencode 1-based, Claude Code 0-based); advertise shape in `argument-hint`.
 - Subagents have no access to your context — **paste baselines in full** into their brief (e.g. the Fowler smell list, the spec source). Don't point, paste.
 - State the post default (local vs MR comment) explicitly; the don't-merge rule lives at the post step.
 

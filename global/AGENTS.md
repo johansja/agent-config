@@ -42,6 +42,8 @@ External-behavior claims — library/API/tool/system behavior, defaults, signatu
 
 **Versions are high-risk recall:** Training cutoffs make version claims stale. Verify with `web_search` or the tool before asserting existence or obsolescence.
 
+**Toolchain pins are the ceiling.** Don't write or approve code newer than the project's version files (go.mod, package.json) allow — offer newer capabilities as explicit upgrade suggestions instead. For idiom freshness, trust the language's own modernization tooling over training recall.
+
 ### Verify Run Outcomes
 
 Don't claim a command, test, or extraction passed/failed without running it — read the output, then report.

@@ -7,14 +7,16 @@ Run `code-review` on the GitLab MR at **$ARGUMENTS**; show the full report inlin
 
 ## Posting (glab)
 
-Reached only after the inline report. Read at posting time.
-
-- **Verdict FAIL** → stop and ask; on the user's go, post one MR-level note:
-  `glab mr note create <id> --resolvable=false --unique -m "<required-to-pass>"`.
-  Content: a `## Required to pass` list — exactly the FAIL-causing findings,
-  grouped by axis,
+- **Verdict FAIL** → draft one MR-level note and show it inline in full, stop and ask;
+  on the user's go, post it verbatim per the syntax below.
+  Content: a `## Required to pass` list — exactly the FAIL-causing findings
+  (Standards hard violations, Spec findings, Criticals), grouped by axis,
   severity-ordered within, each line `file:line — finding — required change`.
 - **Verdict PASS** → post nothing; offer to run `glab mr approve <id>` and do so only on the user's yes.
+
+### Syntax — read only when posting
+
+- `glab mr note create <id> --resolvable=false --unique -m "<required-to-pass>"`
 - Use `note create`, not the `note` alias — `--resolvable`/`--unique` exist only on `create`.
 - `--resolvable=false` posts a non-blocking note (the default is a merge-blocking discussion).
 - `--unique` makes re-runs idempotent.

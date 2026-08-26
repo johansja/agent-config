@@ -29,7 +29,6 @@
  *       "autoSessionName": {
  *         "model": "bitdeerai/deepseek-ai/DeepSeek-V4-Flash",
  *         "maxChars": 60,
- *         "timeout": 15000,
  *         "disabled": false
  *       }
  *     }
@@ -44,7 +43,12 @@
  *                                    and emits ui.notify on naming/error.
  *                                    (env-only; not in settings.json)
  *   PI_AUTO_SESSION_NAME_MAX_CHARS - Truncate generated name to N chars (default 60).
- *   PI_AUTO_SESSION_NAME_TIMEOUT   - LLM call timeout in ms (default 15000).
+ *
+ *   Request timeout and client-side retries come from pi's global
+ *   retry.provider settings (~/.pi/agent/settings.json), same as agent-turn
+ *   requests. If retry.provider.maxRetries is unset, the naming request is
+ *   made without client-side retries (pi-ai disables provider-SDK retry
+ *   defaults and only retries per this setting).
  *
  * Install:
  *   ln -sf ~/projects/agent-config/pi/auto-session-name.ts \
@@ -84,14 +88,12 @@ type SessionEntry = {
 // ---------------------------------------------------------------------------
 
 const DEFAULT_MAX_CHARS = 60;
-const DEFAULT_TIMEOUT_MS = 15_000;
 
 interface Config {
 	modelSpec: string | undefined;
 	disabled: boolean;
 	debug: boolean;
 	maxChars: number;
-	timeoutMs: number;
 }
 
 function isTruthyEnv(v: string | undefined): boolean {
@@ -133,19 +135,26 @@ function loadConfig(cwd: string): Config {
 		? (maxCharsFromSettings ?? DEFAULT_MAX_CHARS)
 		: maxCharsRaw;
 
-	const timeoutRaw = parseInt(process.env.PI_AUTO_SESSION_NAME_TIMEOUT ?? "", 10);
-	const timeoutFromSettings = typeof settings?.timeout === "number" ? settings.timeout : undefined;
-	const timeoutMs = Number.isNaN(timeoutRaw)
-		? (timeoutFromSettings ?? DEFAULT_TIMEOUT_MS)
-		: timeoutRaw;
-
 	return {
 		modelSpec,
 		disabled: isTruthyEnv(process.env.PI_AUTO_SESSION_NAME_DISABLED) || disabledFromSettings,
 		debug: isTruthyEnv(process.env.PI_AUTO_SESSION_NAME_DEBUG),
 		maxChars,
-		timeoutMs,
 	};
+}
+
+/**
+ * Read pi's global retry.provider settings (request timeout, client-side
+ * retry count, retry-delay cap) so naming calls honor the same provider
+ * retry configuration as agent-turn requests.
+ */
+function readProviderRetry(cwd: string): {
+	timeoutMs?: number;
+	maxRetries?: number;
+	maxRetryDelayMs: number;
+} {
+	const settingsManager = SettingsManager.create(cwd, `${process.env.HOME}/.pi/agent`);
+	return settingsManager.getProviderRetrySettings();
 }
 
 // ---------------------------------------------------------------------------
@@ -368,15 +377,21 @@ async function resolveModel(
 
 /**
  * Ask the model for a short session title. Returns the raw response text
- * (un-sanitized). Throws on timeout, abort, or empty response.
+ * (un-sanitized). Throws on abort, provider error (after any client-side
+ * retries), or empty response. Request timeout and retries come from the
+ * caller's options, sourced from pi's retry.provider settings.
  */
 async function generateTitle(
 	model: Model<Api>,
 	modelRegistry: ModelRegistry,
 	user: string,
 	assistant: string,
-	timeoutMs: number,
-	signal: AbortSignal | undefined,
+	options: {
+		signal: AbortSignal | undefined;
+		timeoutMs: number | undefined;
+		maxRetries: number | undefined;
+		maxRetryDelayMs: number;
+	},
 ): Promise<string> {
 	const context: Context = {
 		systemPrompt: SYSTEM_PROMPT,
@@ -389,40 +404,21 @@ async function generateTitle(
 		],
 	};
 
-	const timeoutController = new AbortController();
-	let timedOut = false;
-	const timer = setTimeout(() => {
-		timedOut = true;
-		timeoutController.abort();
-	}, timeoutMs);
+	const response = await modelRegistry.complete(model, context, {
+		signal: options.signal,
+		timeoutMs: options.timeoutMs,
+		maxRetries: options.maxRetries,
+		maxRetryDelayMs: options.maxRetryDelayMs,
+	});
 
-	const onAbort = () => timeoutController.abort();
-	if (signal) {
-		if (signal.aborted) timeoutController.abort();
-		else signal.addEventListener("abort", onAbort, { once: true });
-	}
+	const raw = response.content
+		.filter((c): c is { type: "text"; text: string } => c.type === "text")
+		.map((c) => c.text)
+		.join("")
+		.trim();
 
-	try {
-		const response = await modelRegistry.complete(model, context, {
-			signal: timeoutController.signal,
-		});
-
-		const raw = response.content
-			.filter((c): c is { type: "text"; text: string } => c.type === "text")
-			.map((c) => c.text)
-			.join("")
-			.trim();
-
-		if (!raw) throw new Error("model returned empty response");
-		return raw;
-	} catch (err) {
-		if (timedOut) throw new Error(`model call timed out after ${timeoutMs}ms`);
-		if (signal?.aborted) throw new Error("model call aborted");
-		throw err;
-	} finally {
-		clearTimeout(timer);
-		if (signal) signal.removeEventListener("abort", onAbort);
-	}
+	if (!raw) throw new Error("model returned empty response");
+	return raw;
 }
 
 // ---------------------------------------------------------------------------
@@ -517,14 +513,13 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			debugLog(`naming with ${model.provider}/${model.id}`);
-			const rawTitle = await generateTitle(
-				model,
-				ctx.modelRegistry,
-				convo.user,
-				convo.assistant,
-				config.timeoutMs,
-				ctx.signal,
-			);
+			const providerRetry = readProviderRetry(ctx.cwd);
+			const rawTitle = await generateTitle(model, ctx.modelRegistry, convo.user, convo.assistant, {
+				signal: ctx.signal,
+				timeoutMs: providerRetry.timeoutMs,
+				maxRetries: providerRetry.maxRetries,
+				maxRetryDelayMs: providerRetry.maxRetryDelayMs,
+			});
 			const title = sanitizeTitle(rawTitle, config.maxChars);
 			if (!title) {
 				throw new Error("sanitized title was empty");

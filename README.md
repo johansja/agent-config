@@ -54,13 +54,13 @@ Set the naming model in `~/.pi/agent/settings.json` (same file as `permissionGat
 ```json
 {
   "autoSessionName": {
-    "model": "bitdeerai/moonshotai/Kimi-K3"
+    "model": "bitdeerai/zai-org/GLM-5.3-Flash"
   }
 }
 ```
 
 The naming call pins reasoning effort to `low` (mapped through the model's
-`thinkingLevelMap`) — fast titles; always-thinking models like Kimi-K3 otherwise
+`thinkingLevelMap`) — fast titles; reasoning models like GLM-5.3-Flash otherwise
 default to max effort server-side.
 
 Environment variables override settings.json:

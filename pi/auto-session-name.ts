@@ -27,19 +27,19 @@
  *   the permissionGate pattern):
  *     {
  *       "autoSessionName": {
- *         "model": "bitdeerai/moonshotai/Kimi-K3",
+ *         "model": "bitdeerai/zai-org/GLM-5.3-Flash",
  *         "maxChars": 60,
  *         "disabled": false
  *       }
  *     }
  *
  *   The naming call pins reasoning effort to "low" (mapped through the model's
- *   thinkingLevelMap): fast titles — always-thinking models like Kimi-K3
+ *   thinkingLevelMap): fast titles — reasoning models like GLM-5.3-Flash
  *   otherwise default to max effort server-side.
  *
  *   Environment variables (override settings.json):
  *   PI_AUTO_SESSION_NAME_MODEL     - Model for naming. Accepts "provider/modelId"
- *                                    (e.g. "bitdeerai/moonshotai/Kimi-K3")
+ *                                    (e.g. "bitdeerai/zai-org/GLM-5.3-Flash")
  *                                    or a bare model id matched across providers.
  *                                    Default: the session's current model (ctx.model).
  *   PI_AUTO_SESSION_NAME_DISABLED  - "1"/"true"/"yes" disables the extension.
@@ -409,8 +409,8 @@ async function generateTitle(
 	};
 
 	// reasoningEffort pins the naming call to low effort (mapped through the
-	// model's thinkingLevelMap): fast titles — always-thinking models like
-	// Kimi-K3 otherwise default to max effort server-side. Key matters: the
+	// model's thinkingLevelMap): fast titles — reasoning models like
+	// GLM-5.3-Flash otherwise default to max effort server-side. Key matters: the
 	// openai-completions adapter reads reasoningEffort and silently drops the
 	// provider-neutral `reasoning` key. Spread idiom bypasses the excess-
 	// property check since SimpleStreamOptions doesn't declare the field.

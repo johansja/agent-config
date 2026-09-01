@@ -49,15 +49,19 @@ Automatically generates a short, human-readable name for each new session after 
 
 **Configuration (precedence: env var > settings.json > default):**
 
-Set a cheaper model in `~/.pi/agent/settings.json` (same file as `permissionGate`):
+Set the naming model in `~/.pi/agent/settings.json` (same file as `permissionGate`):
 
 ```json
 {
   "autoSessionName": {
-    "model": "bitdeerai/deepseek-ai/DeepSeek-V4-Flash"
+    "model": "bitdeerai/moonshotai/Kimi-K3"
   }
 }
 ```
+
+The naming call pins reasoning effort to `low` (mapped through the model's
+`thinkingLevelMap`) — fast titles; always-thinking models like Kimi-K3 otherwise
+default to max effort server-side.
 
 Environment variables override settings.json:
 

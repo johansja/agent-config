@@ -17,7 +17,7 @@ This repo is the source-of-truth for pi, opencode, and Claude Code agent artifac
 ## Development Guidelines (pi extensions)
 
 - **Language:** TypeScript, targeting Node.js (pi uses tsx for runtime compilation).
-- **Imports:** Use `@earendil-works/pi-coding-agent` for the ExtensionAPI type and helpers. Use `@earendil-works/pi-ai/compat` for the legacy `completeSimple`/`stream` API and `typebox` for schemas, where needed (as questionnaire does).
+- **Imports:** Use `@earendil-works/pi-coding-agent` for the ExtensionAPI type and helpers. Use `@earendil-works/pi-ai/compat` for the legacy `completeSimple`/`stream` API and `typebox` for schemas, where needed (as auto-session-name does).
 - **No build step:** pi loads `.ts` files directly via tsx. Do not add a build/compile step.
 - **No npm/pnpm:** This is not a Node.js package. Dependencies are pi's own dependencies (available at runtime).
 - **Symlink deployment:** Deployed via `ln -sf` into `~/.pi/agent/extensions/` (extensions), the per-agent subagent dirs (`~/.pi/agent/agents/`, `~/.config/opencode/agents/`, `~/.claude/agents/`), skills (`~/.agents/skills/` for pi/opencode, `~/.claude/skills/` for Claude Code), global rules (`~/.pi/agent/AGENTS.md`, `~/.config/opencode/AGENTS.md`, `~/.claude/CLAUDE.md`), and commands (`~/.pi/agent/prompts/`, `~/.config/opencode/commands/`, `~/.claude/commands/`). See `README.md` for the full command list.

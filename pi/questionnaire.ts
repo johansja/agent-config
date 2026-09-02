@@ -100,20 +100,17 @@ export default function questionnaire(pi: ExtensionAPI) {
 			const isMulti = questions.length > 1;
 			const totalTabs = questions.length + 1; // questions + Submit
 
-			const notifyBody = `Questionnaire: ${questions.length} question${questions.length !== 1 ? "s" : ""}`;
 			const statusText = `❓ ${questions.length} question${questions.length !== 1 ? "s" : ""}`;
 			const statusKey = "questionnaire";
-			// Open block: TUI footer pill (producer-owned, ctx-bound) + bus event
-			// (co-loaded user-input:blocked consumers fire the ctx-less transports).
-			// The open/close pair must stay balanced — the close fires
-			// in the .finally() after ctx.ui.custom resolves/rejects.
+			// TUI footer pill is producer-owned (ctx-bound). Blocked-notification
+			// transports need no signal here: notify-* consumers track pi's core
+			// ui_prompt_start/ui_prompt_end, which fire around ctx.ui.custom.
 			try {
 				const theme = ctx.ui.theme;
 				if (theme?.fg) ctx.ui.setStatus(statusKey, theme.fg("accent", statusText));
 			} catch {
 				// pi-web: theme proxy can throw before initTheme — best-effort
 			}
-			pi.events.emit("user-input:blocked", { active: true, label: notifyBody, status: { key: statusKey, text: statusText } });
 			const result = await ctx.ui.custom<QuestionnaireResult>((tui, theme, _kb, done) => {
 				// State
 				let currentTab = 0;
@@ -143,12 +140,10 @@ export default function questionnaire(pi: ExtensionAPI) {
 					tui.requestRender();
 				}
 
-				// Reflect current mode + progress in the TUI footer pill (producer-owned transport).
-				// The cmux sidebar pill + OSC notify are fired once by the co-loaded
-				// user-input:blocked consumers
-				// on the open emit and are not re-fired here. Glyph swaps per mode; count morphs
-				// to answered/total. Color stays accent; the glyph carries mode. notifyBody
-				// (user-input:blocked label) is set once at emit and unchanged.
+				// Reflect current mode + progress in the TUI footer pill (producer-owned).
+				// Blocked-notification transports (cmux pill, OSC) fired once on
+				// ui_prompt_start and are not re-fired here. Glyph swaps per mode; count
+				// morphs to answered/total. Color stays accent; the glyph carries mode.
 				function updateStatus() {
 					const answered = answers.size;
 					const total = questions.length;
@@ -426,7 +421,6 @@ export default function questionnaire(pi: ExtensionAPI) {
 				} catch {
 					// best-effort
 				}
-				pi.events.emit("user-input:blocked", { active: false, statusKey });
 			});
 
 			if (result.cancelled) {

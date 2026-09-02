@@ -1,23 +1,17 @@
 /**
- * OSC terminal notification consumer for `user-input:blocked`.
+ * OSC terminal notification consumer for blocking UI prompts.
  *
- * Subscribes to `user-input:blocked` and fires OSC 99 (Kitty) / OSC 777
+ * Subscribes to pi's core `ui_prompt_start` — fired around every blocking
+ * ctx.ui prompt (select/confirm/input/editor/custom: permission gates,
+ * questionnaires, any extension UI) — and fires OSC 99 (Kitty) / OSC 777
  * (Ghostty, iTerm2, WezTerm, rxvt-unicode) terminal notifications on open.
  * No-op under cmux — `notify-cmux.ts` owns the cmux surface so OSC and cmux
  * don't double-fire. Outside cmux, OSC is the only terminal notification.
  *
- * Split from the former `notify.ts` (one consumer per transport). Payload
- * type duplicated structurally — no shared file (producers build payloads
- * inline by convention).
+ * Split from the former `notify.ts` (one consumer per transport).
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-
-/** user-input:blocked event payload (subset this consumer reads). */
-interface UserInputBlockedEvent {
-	active: boolean;
-	label?: string;
-}
 
 /**
  * Fire a terminal notification via OSC.
@@ -34,12 +28,10 @@ function notifyOsc(title: string, body: string): void {
 }
 
 export default function (pi: ExtensionAPI): void {
-	pi.events.on("user-input:blocked", (data: unknown) => {
+	pi.on("ui_prompt_start", (event) => {
 		// cmux owns the cmux surface (notify-cmux.ts fires `cmux notify`). No-op
 		// here so the two don't double-fire; outside cmux OSC is the only path.
 		if (process.env.CMUX_SURFACE_ID) return;
-		const evt = data as UserInputBlockedEvent | undefined;
-		if (!evt || !evt.active) return;
-		notifyOsc("Pi", evt.label ?? "Awaiting input");
+		notifyOsc("Pi", event.title ?? "Awaiting input");
 	});
 }

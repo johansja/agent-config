@@ -1,39 +1,38 @@
 /**
- * cmux notification + sidebar-status consumer for `user-input:blocked`.
+ * cmux notification + sidebar-status consumer for blocking UI prompts.
  *
- * Subscribes to `user-input:blocked` and, when running under cmux
+ * Subscribes to pi's core `ui_prompt_start`/`ui_prompt_end` — fired around
+ * every blocking ctx.ui prompt (permission gates, questionnaires, any
+ * extension UI) — and, when running under cmux
  * (`CMUX_SURFACE_ID` set), fires `cmux notify` (routes to cmux's notification
  * panel, dock badge, pane flash) and manages a cmux sidebar status pill via
- * `cmux set-status` / `clear-status` keyed by the producer's status key.
+ * `cmux set-status` / `clear-status` under this consumer's own key.
  *
  * No-op outside cmux — `notify-osc.ts` owns terminal notification there.
  * Spawn failures are silent: OSC (notify-osc.ts) is the independent fallback
  * outside cmux, so under cmux a `cmux notify` spawn failure just means no
  * terminal notification for that one event.
  *
- * Split from the former `notify.ts` (one consumer per transport). Payload
- * type duplicated structurally — no shared file (producers build payloads
- * inline by convention).
+ * Split from the former `notify.ts` (one consumer per transport).
  */
 
 import { spawn } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-/** Status spec carried in user-input:blocked payload for the cmux sidebar pill. */
+/** Status spec for the cmux sidebar pill. */
 interface StatusSpec {
-	/** Stable key for the status slot, e.g. "my-extension". */
+	/** Stable key for the status slot. */
 	key: string;
 	/** Short text shown in the cmux sidebar while the block is open. */
 	text: string;
 }
 
-/** user-input:blocked event payload (subset this consumer reads). */
-interface UserInputBlockedEvent {
-	active: boolean;
-	label?: string;
-	status?: StatusSpec;
-	statusKey?: string;
-}
+/**
+ * Pill key owned by this consumer. Core ui_prompt events coalesce nested
+ * prompts into one outer span, so set-on-start / clear-on-end with a single
+ * constant key stays balanced.
+ */
+const STATUS_KEY = "pi-ui-prompt";
 
 /** Fire `cmux notify`. Silent on spawn failure. No-op outside cmux. */
 function notifyCmux(title: string, body: string): void {
@@ -88,17 +87,15 @@ function cmuxClearStatus(key: string): void {
 }
 
 export default function (pi: ExtensionAPI): void {
-	pi.events.on("user-input:blocked", (data: unknown) => {
+	pi.on("ui_prompt_start", (event) => {
 		// cmux surface only; OSC (notify-osc.ts) handles terminal notification
 		// outside cmux.
 		if (!process.env.CMUX_SURFACE_ID) return;
-		const evt = data as UserInputBlockedEvent | undefined;
-		if (!evt) return;
-		if (evt.active) {
-			notifyCmux("Pi", evt.label ?? "Awaiting input");
-			if (evt.status) cmuxSetStatus(evt.status);
-		} else {
-			if (evt.statusKey) cmuxClearStatus(evt.statusKey);
-		}
+		notifyCmux("Pi", event.title ?? "Awaiting input");
+		cmuxSetStatus({ key: STATUS_KEY, text: event.title ?? "waiting" });
+	});
+	pi.on("ui_prompt_end", () => {
+		if (!process.env.CMUX_SURFACE_ID) return;
+		cmuxClearStatus(STATUS_KEY);
 	});
 }

@@ -30,6 +30,10 @@ This repo is the source-of-truth for pi, opencode, and Claude Code agent artifac
 - Keep extensions self-contained — do not cross-import between extensions (ADR: [docs/adr/0001](docs/adr/0001-extensions-independently-deployable.md) — each extension is independently deployable; cross-extension duplication is intentional).
 - Write tests as `.mjs` files using Node.js built-in `node:test` and `node:assert/strict`. Run from repo root: `node --test pi/<name>.test.mjs`.
 
+## Pruning artifacts
+
+Zero in one agent's logs is not zero overall — skills/commands deploy to all three. Evidence sources: pi session JSONLs (SKILL.md reads + expanded command bodies), `~/.claude/projects/**/*.jsonl` (`<command-name>` tags), opencode's `opencode.db` `part` table (expanded bodies are not stored — distinctive fragments prove presence only, never invocation counts). Confirm with the user before cutting anything on single-store telemetry.
+
 ## References
 
 Before improving, adding, or modifying any extension, prompt, agent, skill, or the canonical global rules file, consult the references in [README.md](README.md#references) and pi's and opencode's own documentation.

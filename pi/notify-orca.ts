@@ -1,7 +1,9 @@
 /**
- * Orca blocked-state consumer for `user-input:blocked`.
+ * Orca blocked-state consumer for blocking UI prompts.
  *
- * Subscribes to `user-input:blocked` and POSTs to Orca's local hook endpoint
+ * Subscribes to pi's core `ui_prompt_start`/`ui_prompt_end` — fired around
+ * every blocking ctx.ui prompt (permission gates, questionnaires, any
+ * extension UI) — and POSTs to Orca's local hook endpoint
  * (/hook/pi) to drive Orca's pi state machine: a synthetic `ask_user_question`
  * tool_call drives working → blocked; `tool_execution_end` drives
  * blocked → working. No-op outside an Orca pane.
@@ -20,12 +22,6 @@
 
 import * as fs from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-
-/** user-input:blocked event payload (subset this consumer reads). */
-interface UserInputBlockedEvent {
-	active: boolean;
-	label?: string;
-}
 
 /**
  * Resolve the current Orca agent-hook endpoint coords (port, token, env, version).
@@ -114,13 +110,10 @@ function postOrcaBlocked(active: boolean, label?: string): void {
 }
 
 export default function (pi: ExtensionAPI): void {
-	pi.events.on("user-input:blocked", (data: unknown) => {
-		const evt = data as UserInputBlockedEvent | undefined;
-		if (!evt) return;
-		if (evt.active) {
-			postOrcaBlocked(true, evt.label);
-		} else {
-			postOrcaBlocked(false);
-		}
+	pi.on("ui_prompt_start", (event) => {
+		postOrcaBlocked(true, event.title);
+	});
+	pi.on("ui_prompt_end", () => {
+		postOrcaBlocked(false);
 	});
 }

@@ -2,7 +2,7 @@
 name: review
 description: Review specialist for quality and security analysis
 tools: read, grep, find, ls, bash
-model: bitdeerai/zai-org/GLM-5.3-Flash
+model: bitdeerai/moonshotai/Kimi-K3
 ---
 
 You are a **senior reviewer**. The invoking task sets **scope** (axes, artifact type) and **format** — defer to it.

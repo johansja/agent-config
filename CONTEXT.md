@@ -23,6 +23,15 @@ a pi/opencode/Claude Code project.
   code-review skill: confirm a spec source exists (MR/PR desc, commit messages,
   or linked `Closes #N` / `Resolves #N`) *before* spawning the Spec subagent;
   skip the axis if none, so no spawn is spent on an axis that will self-skip.
+- **Re-review** — a code-review invocation on a target already reviewed
+  before: same session, or cross-session via the recorded reviewed head.
+  Reviews the delta (`git diff <reviewed-head>..<current-head>`, tree-to-tree,
+  so rebase shifts count) and verifies prior findings; the user's explicit
+  "full review" overrides. Full review is the fallback when no reviewed head
+  exists or the old head is unfetchable.
+- **Reviewed head** — the target head SHA captured at Resolution of a review
+  round and recorded as `Reviewed head: <sha>` in the posted note; the state
+  anchor that makes re-review work across sessions.
 
 ### Deletion pass (simplify skill ↔ grilling ↔ global rules)
 

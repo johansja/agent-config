@@ -13,6 +13,11 @@ Resolve to a **pinned fetch instruction** that the subagents will run themselves
 - **Local** (files, commits, or range named; or nothing): resolve to `git diff <range>`; default `git diff HEAD`, fall back to `git diff HEAD~1` if empty. Pin to `HEAD`.
 - Empty diff → stop, report. (Detected by the resolution run; the content is not pasted onward.)
 
+**Re-review** — the MR/PR already has a review round (earlier in this session, or a `Reviewed head: <sha>` line in its notes/comments — GitLab: `glab api "projects/<proj>/merge_requests/<id>/notes?per_page=100"`, GitHub: `gh pr view <id> --comments`) and the user has not explicitly asked for a full review → review the **delta**:
+- Pinned instruction: `git fetch --quiet origin <reviewed-sha> <head-sha>; git diff <reviewed-sha> <head-sha>` — tree-to-tree, so rebase shifts count. Fetch or diff fails → fall back to the full-review instruction.
+- Run the delta once to detect emptiness. **Empty delta → stop before spawning**: report "no changes since last reviewed head `<sha>`; prior findings stand" and re-offer the prior verdict.
+- Prior findings: this session's earlier report, else the last posted note. Each axis's findings go into that axis's subagent brief (§4) as verify-resolved-or-still-present.
+
 Emit the pinned instruction, e.g. `glab mr diff 4123` or `git diff <sha>~1 <sha>`, and pass it to each subagent in §4.
 
 ## 2. Pick axes
@@ -43,7 +48,7 @@ Confirm axes with the user if unclear. Default: Standards + Spec + Correctness +
 
 ## 4. Spawn the `review` subagents — one per axis, plus Impact — in parallel
 
-One message, N+1 subagent calls. Each `review` subagent is a thin legwork reviewer. Brief each axis subagent with: its **axis**, the **pinned fetch instruction** from §1 (the subagent runs it itself — do not paste the diff), and the output contract below. **Paste the Fowler baseline in full** into the Standards subagent — it has no other access.
+One message, N+1 subagent calls. Each `review` subagent is a thin legwork reviewer. Brief each axis subagent with: its **axis**, the **pinned fetch instruction** from §1 (the subagent runs it itself — do not paste the diff), and the output contract below. Re-review rounds: paste that axis's prior findings into its brief — verify each against the worktree (read the current file; findings in files untouched by the delta are checked there, not in the diff) and report resolved / still-present. **Paste the Fowler baseline in full** into the Standards subagent — it has no other access.
 
 **Output contract** (override the subagent default): one `## <Axis>` heading per axis, per-file findings only, <400 words, no preamble. Standards: cite the violated standard (file+rule) or name the smell, distinguish hard violations from judgement calls, skip tooling-enforced. Spec: (a) missing/partial, (b) scope creep, (c) wrong — quote the spec line per finding; end with a `Spec quote:` line carrying the source excerpt verbatim (## Motivation lifts it — do not re-fetch). Correctness/Security: severity (**Critical**/**Warning**/**Suggestion**), file+line, why.
 
@@ -52,3 +57,5 @@ One message, N+1 subagent calls. Each `review` subagent is a thin legwork review
 ## 5. Aggregate
 
 Lead with `## Changes` — one or two lines: files touched + net behaviour. Then `## Motivation` — why the change exists, quoted from the spec source (MR/PR desc captured in §1, else the Spec subagent's `Spec quote:`); `undetermined` when no spec source exists — never infer intent from the diff. Then `## Impact` as reported by its subagent. Then each axis under its `## <Axis>` heading. End each axis with one line: total findings + worst issue (if any). Final `## Verdict` — single line: `PASS` or `FAIL`; FAIL if any Standards hard violation, any Spec finding, or any Critical, else PASS; one short clause of reason. **Do not merge or rerank across axes.**
+
+End the report with `Reviewed head: <head sha>` — the SHA this round reviewed; the anchor a later re-review resolves from. Re-review rounds: scope `## Changes` to the delta and state which prior findings resolved vs still open.

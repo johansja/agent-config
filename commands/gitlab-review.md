@@ -12,6 +12,7 @@ Run `code-review` on the GitLab MR at **$ARGUMENTS**; show the full report inlin
   Content: a `## Required to pass` list — exactly the FAIL-causing findings
   (Standards hard violations, Spec findings, Criticals), grouped by axis,
   severity-ordered within, each line `file:line — finding — required change`.
+  End the note with the report's `Reviewed head: <sha>` line verbatim.
 - **Verdict PASS** → post nothing; offer to run `glab mr approve <id>` and do so only on the user's yes.
 
 ### Syntax — read only when posting

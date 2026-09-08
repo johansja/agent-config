@@ -77,6 +77,22 @@ Environment variables override settings.json:
 
 **Test:** `node --test pi/auto-session-name.test.mjs`
 
+### notify-cmux / notify-herdr / notify-orca / notify-osc
+
+Blocked-state consumers, one file per transport: each subscribes pi's
+`ui_prompt_start`/`ui_prompt_end` and translates blocking prompts into its
+host's waiting-for-user signal. No-op outside its host.
+
+**Test:** `node --test pi/notify-orca.test.mjs`
+
+### Vendor-managed extensions (not in this repo)
+
+`~/.pi/agent/extensions/` also holds files installed and upgraded in place by
+their tools — `cmux-session.ts` (cmux), `herdr-agent-state.ts` (herdr),
+`orca-{agent-status,prefill,titlebar-spinner}.ts` (Orca), `emdash-hook.ts`
+(emdash). Their tools overwrite them on upgrade — never edit or absorb them.
+They cover session lifecycle; the blocked-state seam belongs to `notify-*`.
+
 ## Commands (shared)
 
 Slash-command templates (markdown with YAML frontmatter). Compatible with pi (`prompts/`), opencode (`commands/`), and Claude Code (`commands/`). Each lives in `commands/<name>.md` and is symlinked into `~/.pi/agent/prompts/`, `~/.config/opencode/commands/`, and `~/.claude/commands/`.
@@ -84,6 +100,23 @@ Slash-command templates (markdown with YAML frontmatter). Compatible with pi (`p
 ## Global rules (shared)
 
 `global/AGENTS.md` is the single canonical rules file. `~/.pi/agent/AGENTS.md`, `~/.config/opencode/AGENTS.md`, and `~/.claude/CLAUDE.md` all symlink to it — same rules in every session. (Claude Code's memory file is `CLAUDE.md`; the content is agent-agnostic markdown.) Editing it is the only way to change agent behavior across all agents in one step.
+
+## Skills (shared)
+
+Skills in `skills/` are repo-owned; `codebase-design` is a modified fork of
+[mattpocock/skills](https://github.com/mattpocock/skills). `~/.agents/skills/`
+additionally holds vendored third-party skill directories not versioned here.
+Reinstall sources:
+
+| Skill | Source |
+|---|---|
+| vercel-react-best-practices, vercel-composition-patterns, web-design-guidelines | Vercel Engineering |
+| gpu-operator, kai, nvsentinel, network-operator | NVIDIA (network-operator via `k8s-launch-kit`) |
+| show-me | [humanlayer/skills](https://github.com/humanlayer/skills) (`skills-lock.json`) |
+| orca-cli, orchestration, computer-use | Orca toolchain |
+| herdr | Herdr toolchain |
+| search-company-knowledge | Atlassian MCP |
+| powerpoint | custom (possibly skills.sh) |
 
 ## Installation
 
@@ -129,7 +162,9 @@ ln -sf "$PWD/global/AGENTS.md" ~/.config/opencode/AGENTS.md
 ln -sf "$PWD/global/AGENTS.md" ~/.claude/CLAUDE.md
 ```
 
-Symlinks ensure edits land immediately in both agents without copying.
+Symlinks ensure edits land immediately in all deployed agents without copying.
+
+Verified working against pi 0.85.1 · opencode 1.18.26 · Claude Code 2.1.231 (2026-09-08). Bump this line on each sync audit.
 
 ## References
 

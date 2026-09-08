@@ -45,6 +45,28 @@ a pi/opencode/Claude Code project.
   which requirement dies if it's cut; cut orphans before they're written.
   Complexity is cheapest to delete at plan time.
 
+### Session naming actors
+
+Three independent actors set a pi session's display name. Independence is
+deliberate: no shared state, no provenance tracking, no locking.
+
+- **auto-name** — `auto-session-name.ts`: one-shot, fires on the first
+  `agent_settled` of a brand-new session, skips if any name is already set.
+  Titles from turn-1 text.
+- **`/name`** — pi built-in: user-explicit set. Sets nothing but the name;
+  marks nothing; locks nothing.
+- **`/rename`** — on-demand regenerate: user-explicit command that re-titles
+  from the whole session (via a summarize-then-title pass), replacing
+  whatever name exists. Explicit invocation is itself the consent — it may
+  replace a `/name`-set name, by design.
+- **drift** — session content outgrowing its name (the name titles turn 1,
+  the session became something else); an auto-named session that drifts gets
+  manually renamed later.
+
+Why no provenance: the only automatic actor (auto-name) is guarded by
+name-existence; every other actor is user-explicit, so there is nothing to
+protect a manual name *from*. Do not reintroduce origin markers.
+
 ### Artifact classes
 
 See `README.md` for the canonical tree. Glossary entries only where a term

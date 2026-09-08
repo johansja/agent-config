@@ -47,6 +47,13 @@ Automatically generates a short, human-readable name for each new session after 
 - Skips ephemeral sessions (`--no-session`).
 - Silently skips on any error; set `PI_AUTO_SESSION_NAME_DEBUG=1` for diagnostics.
 
+The extension also registers `/rename`: re-titles the session from the whole conversation on demand, for when it drifts from its turn-1 name.
+
+- Summarizes the current branch with pi's own compaction summarizer (`generateSummary`), then titles from that summary. Branch is read whole — pre-fork history and compaction summaries included.
+- Replaces any existing name, auto-set or `/name`-set — explicit invocation is the consent. Reports `old → new` in the TUI.
+- Works on ephemeral sessions (rename holds for the live session, won't persist); failures warn instead of silently skipping.
+- A footer status (`renaming session…`) shows while it runs; overlapping invocations are refused.
+
 **Configuration (precedence: env var > settings.json > default):**
 
 Set the naming model in `~/.pi/agent/settings.json` (same file as `permissionGate`):
@@ -68,10 +75,9 @@ Environment variables override settings.json:
 | Variable | Default | Description |
 |---|---|---|
 | `PI_AUTO_SESSION_NAME_MODEL` | session model | Model for naming, `provider/modelId` or bare id |
-| `PI_AUTO_SESSION_NAME_DISABLED` | unset | `1`/`true`/`yes` disables the extension |
+| `PI_AUTO_SESSION_NAME_DISABLED` | unset | `1`/`true`/`yes` disables auto-naming (`/rename` unaffected) |
 | `PI_AUTO_SESSION_NAME_DEBUG` | unset | `1`/`true`/`yes` logs diagnostics to stderr and TUI |
-| `PI_AUTO_SESSION_NAME_MAX_CHARS` | `60` | Truncate generated name to N chars |
-| `PI_AUTO_SESSION_NAME_TIMEOUT` | `15000` | LLM call timeout in ms |
+| `PI_AUTO_SESSION_NAME_MAX_CHARS` | `80` | Truncate generated name to N chars |
 
 **Install:** Symlink `pi/auto-session-name.ts` into `~/.pi/agent/extensions/`.
 

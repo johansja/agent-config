@@ -25,6 +25,18 @@
  *     failure, empty/parse-failed response). Set `PI_AUTO_SESSION_NAME_DEBUG=1`
  *     to surface diagnostics to stderr and the TUI.
  *
+ * /rename (registered by this file): re-titles the session from the whole
+ * conversation on demand, for when the session drifts from its turn-1 name.
+ * Two steps: summarize the current branch with pi's own compaction summarizer
+ * (generateSummary), then title from that summary. The branch is read whole —
+ * pre-fork history and compaction summaries included — so the title reflects
+ * the session's dominant work. Replaces any existing name, auto-set or
+ * /name-set: explicit invocation is the consent. Unlike the auto-name hook,
+ * /rename is unaffected by `disabled` (user-invoked, no off-switch), works on
+ * ephemeral sessions (the rename holds for the live session but won't
+ * persist), and warns on failure instead of silently skipping. A keyed
+ * footer status tracks the run; overlapping invocations are refused.
+ *
  * Configuration (precedence: env var > settings.json > default):
  *
  *   ~/.pi/agent/settings.json "autoSessionName" block (global only, mirroring
@@ -70,6 +82,8 @@
  */
 
 import {
+	DEFAULT_COMPACTION_SETTINGS,
+	generateSummary,
 	SettingsManager,
 	type ExtensionAPI,
 	type ExtensionContext,
@@ -94,11 +108,19 @@ type SessionEntry = {
 	};
 };
 
+/** Branch entry as read by /rename — message entries plus compaction summaries. */
+type BranchEntry = SessionEntry & {
+	summary?: unknown;
+};
+
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
 const DEFAULT_MAX_CHARS = 80;
+
+/** Footer status key shown while /rename's summarize→title pass is running. */
+const RENAME_STATUS_KEY = "auto-session-name";
 
 interface Config {
 	modelSpec: string | undefined;
@@ -152,6 +174,15 @@ function loadConfig(cwd: string): Config {
 		debug: isTruthyEnv(process.env.PI_AUTO_SESSION_NAME_DEBUG),
 		maxChars,
 	};
+}
+
+/**
+ * Read pi's general retry settings ({enabled, maxRetries, baseDelayMs}) — the
+ * RetryPolicy that generateSummary takes, same as pi's own compaction call.
+ */
+function readRetrySettings(cwd: string): { enabled: boolean; maxRetries: number; baseDelayMs: number } {
+	const settingsManager = SettingsManager.create(cwd, `${process.env.HOME}/.pi/agent`);
+	return settingsManager.getRetrySettings();
 }
 
 /**
@@ -231,16 +262,53 @@ export function buildNamingInput(entries: SessionEntry[], budget = 4000): string
 	return parts.join("\n\n").slice(0, budget);
 }
 
-export const SYSTEM_PROMPT = [
+/**
+ * Build the summarize-input for /rename: every message entry on the current
+ * branch (roles pass through untouched — generateSummary runs convertToLlm
+ * internally, which demotes custom/bash-execution shapes itself), plus each
+ * compaction entry's summary re-injected as a user message so post-compact
+ * sessions keep their full arc. Returns [] when there is nothing to summarize.
+ */
+export function buildSummaryMessages(entries: BranchEntry[]): unknown[] {
+	const out: unknown[] = [];
+	for (const entry of entries) {
+		if (entry.type === "message" && entry.message && typeof entry.message.role === "string") {
+			out.push(entry.message);
+			continue;
+		}
+		if (entry.type === "compaction" && typeof entry.summary === "string" && entry.summary.trim()) {
+			out.push({
+				role: "user",
+				content: `[summary of the conversation before this point]\n${entry.summary}`,
+				timestamp: Date.now(),
+			});
+		}
+	}
+	return out;
+}
+
+// Prompt layout: shared header and rules; the input description and examples
+// differ per call site (turn-1 text vs whole-session summary).
+const PROMPT_HEADER = [
 	"You generate a short title that summarizes a coding-agent conversation.",
 	"The title is shown in a session picker alongside many other titles, so it must",
 	"be concise and distinctive.",
-	"",
+];
+
+const TURN1_INPUT = [
 	"Input: the text of the conversation's first turn. It may contain injected",
 	"scaffolding (skill definitions, command templates) around the real request.",
 	"When a <skill> or command block appears, the actual request follows it, after",
 	"the closing tag — title that request, never the skill's own name.",
-	"",
+];
+
+const SUMMARY_INPUT = [
+	"Input: a structured summary of the entire conversation so far — its goals,",
+	"decisions, changes, and current state. Title the session's dominant work:",
+	"what it is about overall, not the first topic raised or an incidental detour.",
+];
+
+const TITLE_RULES = [
 	"Rules:",
 	"- 3 to 8 words, under 80 characters.",
 	"- Plain text. No quotes, no trailing punctuation, no emoji.",
@@ -251,16 +319,50 @@ export const SYSTEM_PROMPT = [
 	"  \"grilling\" must not appear; use \"skill\" only when the task itself is",
 	"  about a skill.",
 	"- Prefer concrete nouns: feature names, error messages, file paths.",
-	"",
+];
+
+const TARGETED_EXAMPLES = [
 	"Examples of good titles:",
 	"- review managed-kubernetes-platform MR 126",
 	"- AIC-3523 spec writeback trace",
 	"- fix failed gitlab CI job 314275",
+];
+
+export const SYSTEM_PROMPT = [
+	...PROMPT_HEADER,
+	"",
+	...TURN1_INPUT,
+	"",
+	...TITLE_RULES,
+	"",
+	...TARGETED_EXAMPLES,
 	"- review plan workflow duplication (the request followed a skill block; the",
 	"  skill's own name was ignored)",
 	"",
 	"Reply with the title only.",
 ].join("\n");
+
+export const RENAME_SYSTEM_PROMPT = [
+	...PROMPT_HEADER,
+	"",
+	...SUMMARY_INPUT,
+	"",
+	...TITLE_RULES,
+	"",
+	...TARGETED_EXAMPLES,
+	"",
+	"Reply with the title only.",
+].join("\n");
+
+function buildRenameUserPrompt(summary: string): string {
+	return [
+		"Generate a short title for the coding-agent conversation summarized below.",
+		"",
+		summary,
+		"",
+		"Reply with the title only. No explanation, no quotes, no punctuation.",
+	].join("\n");
+}
 
 function buildUserPrompt(turnText: string): string {
 	return [
@@ -387,7 +489,7 @@ async function resolveModel(
 // ---------------------------------------------------------------------------
 
 /**
- * Ask the model for a short session title from the turn-1 text. Returns the
+ * Ask the model for a short session title. Returns the
  * raw response text (un-sanitized). Throws on abort, provider error (after
  * any client-side retries), or empty response. Request timeout and retries
  * come from the caller's options, sourced from pi's retry.provider settings.
@@ -395,7 +497,7 @@ async function resolveModel(
 async function generateTitle(
 	model: Model<Api>,
 	modelRegistry: ModelRegistry,
-	turnText: string,
+	prompts: { systemPrompt: string; userPrompt: string },
 	options: {
 		signal: AbortSignal | undefined;
 		timeoutMs: number | undefined;
@@ -404,11 +506,11 @@ async function generateTitle(
 	},
 ): Promise<string> {
 	const context: Context = {
-		systemPrompt: SYSTEM_PROMPT,
+		systemPrompt: prompts.systemPrompt,
 		messages: [
 			{
 				role: "user",
-				content: buildUserPrompt(turnText),
+				content: prompts.userPrompt,
 				timestamp: Date.now(),
 			},
 		],
@@ -459,6 +561,11 @@ export default function (pi: ExtensionAPI) {
 	// or resumed/continued with prior turns), and at the first agent_settled
 	// for fresh sessions (one-shot, even on failure).
 	let namingAttempted = false;
+
+	// Re-entrancy guard for /rename: a second invocation while the first is
+	// mid-flight would race the footer status and end in two contradictory
+	// rename notifies.
+	let renameInFlight = false;
 
 	pi.on("session_start", async (_event, ctx: ExtensionContext) => {
 		namingAttempted = false;
@@ -531,12 +638,17 @@ export default function (pi: ExtensionAPI) {
 
 			debugLog(`naming with ${model.provider}/${model.id}`);
 			const providerRetry = readProviderRetry(ctx.cwd);
-			const rawTitle = await generateTitle(model, ctx.modelRegistry, namingInput, {
-				signal: ctx.signal,
-				timeoutMs: providerRetry.timeoutMs,
-				maxRetries: providerRetry.maxRetries,
-				maxRetryDelayMs: providerRetry.maxRetryDelayMs,
-			});
+			const rawTitle = await generateTitle(
+				model,
+				ctx.modelRegistry,
+				{ systemPrompt: SYSTEM_PROMPT, userPrompt: buildUserPrompt(namingInput) },
+				{
+					signal: ctx.signal,
+					timeoutMs: providerRetry.timeoutMs,
+					maxRetries: providerRetry.maxRetries,
+					maxRetryDelayMs: providerRetry.maxRetryDelayMs,
+				},
+			);
 			const title = sanitizeTitle(rawTitle, config.maxChars);
 			if (!title) {
 				throw new Error("sanitized title was empty");
@@ -554,5 +666,89 @@ export default function (pi: ExtensionAPI) {
 				ctx.ui.notify(`Auto session name failed: ${detail}`, "warning");
 			}
 		}
+	});
+
+	pi.registerCommand("rename", {
+		description: "Re-title the session from the whole conversation (summarize → title)",
+		handler: async (_args, ctx) => {
+			const notify = (msg: string, level: "info" | "warning") => {
+				debugLog(msg);
+				if (ctx.hasUI) ctx.ui.notify(msg, level);
+			};
+
+			if (renameInFlight) {
+				notify("Rename already in progress", "warning");
+				return;
+			}
+
+			const entries = ctx.sessionManager.getBranch() as BranchEntry[];
+			const messages = buildSummaryMessages(entries);
+			if (messages.length === 0) {
+				notify("Rename: nothing to title yet — no conversation in this session", "warning");
+				return;
+			}
+
+			renameInFlight = true;
+			if (ctx.hasUI) ctx.ui.setStatus(RENAME_STATUS_KEY, "renaming session…");
+			try {
+				const config = loadConfig(ctx.cwd);
+				const model = (await resolveModel(config.modelSpec, ctx.modelRegistry)) ?? ctx.model;
+				if (!model) {
+					throw new Error(
+						"no model available — set PI_AUTO_SESSION_NAME_MODEL or configure a default model",
+					);
+				}
+
+				debugLog(`rename: summarizing ${messages.length} branch messages with ${model.provider}/${model.id}`);
+				const { apiKey, headers } = await ctx.modelRegistry.getApiKeyAndHeaders(model);
+				// thinkingLevel "low" mirrors the naming call: fast summaries from
+				// models that otherwise default to max effort server-side.
+				const summary = await generateSummary(
+					messages as Parameters<typeof generateSummary>[0],
+					model,
+					DEFAULT_COMPACTION_SETTINGS.reserveTokens,
+					apiKey,
+					headers,
+					ctx.signal,
+					undefined,
+					undefined,
+					"low",
+					undefined,
+					undefined,
+					readRetrySettings(ctx.cwd),
+				);
+				if (!summary.trim()) {
+					throw new Error("model returned empty summary");
+				}
+
+				const providerRetry = readProviderRetry(ctx.cwd);
+				const rawTitle = await generateTitle(
+					model,
+					ctx.modelRegistry,
+					{ systemPrompt: RENAME_SYSTEM_PROMPT, userPrompt: buildRenameUserPrompt(summary) },
+					{
+						signal: ctx.signal,
+						timeoutMs: providerRetry.timeoutMs,
+						maxRetries: providerRetry.maxRetries,
+						maxRetryDelayMs: providerRetry.maxRetryDelayMs,
+					},
+				);
+				const title = sanitizeTitle(rawTitle, config.maxChars);
+				if (!title) {
+					throw new Error("sanitized title was empty");
+				}
+
+				const previous = pi.getSessionName();
+				pi.setSessionName(title);
+				const suffix = ctx.sessionManager.getSessionFile() ? "" : " (ephemeral — won't persist)";
+				notify(`Session renamed: ${previous ?? "(unnamed)"} → ${title}${suffix}`, "info");
+			} catch (err) {
+				const detail = err instanceof Error ? err.message : String(err);
+				notify(`Rename failed: ${detail}`, "warning");
+			} finally {
+				if (ctx.hasUI) ctx.ui.setStatus(RENAME_STATUS_KEY, undefined);
+				renameInFlight = false;
+			}
+		},
 	});
 }

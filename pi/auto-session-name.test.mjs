@@ -4,8 +4,9 @@
  * Run with: node --test pi/auto-session-name.test.mjs
  *
  * Covers extractText(), countUserMessages(), buildNamingInput(),
- * sanitizeTitle(), and SYSTEM_PROMPT — the deterministic logic that doesn't
- * require an LLM call.
+ * buildSummaryMessages(), sanitizeTitle(), SYSTEM_PROMPT, and
+ * RENAME_SYSTEM_PROMPT — the deterministic logic that doesn't require an
+ * LLM call.
  *
  * The functions under test are imported from the real extension module via
  * jiti (same TS loader pi uses at runtime). The extension's side effects live inside its default-exported
@@ -42,8 +43,10 @@ const {
 	extractText,
 	countUserMessages,
 	buildNamingInput,
+	buildSummaryMessages,
 	sanitizeTitle,
 	SYSTEM_PROMPT,
+	RENAME_SYSTEM_PROMPT,
 } = mod;
 
 // ---------------------------------------------------------------------------
@@ -459,5 +462,74 @@ describe("system prompt content", () => {
 
 	it("requires a single title reply", () => {
 		assert.match(SYSTEM_PROMPT, /Reply with the title only/);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// buildSummaryMessages — /rename's whole-branch summarize-input
+// ---------------------------------------------------------------------------
+
+describe("buildSummaryMessages", () => {
+	it("passes message entries through by role", () => {
+		const out = buildSummaryMessages([
+			{ type: "message", message: { role: "user", content: "hi" } },
+			{ type: "message", message: { role: "assistant", content: "hey" } },
+			{ type: "message", message: { role: "toolResult", content: [] } },
+		]);
+		assert.equal(out.length, 3);
+		assert.deepEqual(out.map((m) => m.role), ["user", "assistant", "toolResult"]);
+	});
+
+	it("skips non-message entries and message entries without a role", () => {
+		const out = buildSummaryMessages([
+			{ type: "session_info", name: "x" },
+			{ type: "message" },
+			{ type: "message", message: {} },
+		]);
+		assert.equal(out.length, 0);
+	});
+
+	it("re-injects compaction summaries as user messages, in branch order", () => {
+		const out = buildSummaryMessages([
+			{ type: "message", message: { role: "user", content: "early work" } },
+			{ type: "compaction", summary: "did X then Y" },
+			{ type: "message", message: { role: "user", content: "now Z" } },
+		]);
+		assert.equal(out.length, 3);
+		assert.equal(out[1].role, "user");
+		assert.match(out[1].content, /did X then Y/);
+	});
+
+	it("skips compaction entries without usable summaries", () => {
+		const out = buildSummaryMessages([
+			{ type: "compaction" },
+			{ type: "compaction", summary: "   " },
+		]);
+		assert.equal(out.length, 0);
+	});
+
+	it("returns empty for an empty branch", () => {
+		assert.deepEqual(buildSummaryMessages([]), []);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// RENAME_SYSTEM_PROMPT — summary-input variant of the titling prompt
+// ---------------------------------------------------------------------------
+
+describe("RENAME_SYSTEM_PROMPT", () => {
+	it("describes a whole-conversation summary as input", () => {
+		assert.match(RENAME_SYSTEM_PROMPT, /summary of the entire conversation/);
+		assert.match(RENAME_SYSTEM_PROMPT, /dominant work/);
+	});
+
+	it("shares the titling rules with the turn-1 prompt", () => {
+		assert.match(RENAME_SYSTEM_PROMPT, /3 to 8 words, under 80 characters/);
+		assert.match(RENAME_SYSTEM_PROMPT, /the title must include it/);
+		assert.match(RENAME_SYSTEM_PROMPT, /Reply with the title only/);
+	});
+
+	it("does not carry the turn-1 scaffolding-unwrapping guidance", () => {
+		assert.doesNotMatch(RENAME_SYSTEM_PROMPT, /skill block/);
 	});
 });

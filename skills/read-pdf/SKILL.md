@@ -3,7 +3,13 @@ name: read-pdf
 description: Extract text from PDF files. Use when the user asks to read, extract, quote, search, or summarize a PDF, when the read tool refuses a .pdf, or when a PDF source needs to become text for analysis. Covers native CLI, Python venv fallback, page ranges, encrypted PDFs, and scanned/image-only detection.
 ---
 
-The `read` tool accepts text and images, not PDF. Extract text first, then read or paste the result. Try the fastest available extractor; fall through to a universal Python fallback. Every step is host-portable — no `brew` required.
+The `read` tool accepts text and images, not PDF. Extract text first, then read or paste the result. Every step is host-portable — no `brew` required.
+
+## Route by agent
+
+- **pi** — with the read-pdf-tool extension installed, call the `read_pdf` tool; it implements the chain below. Without it, follow the chain manually.
+- **opencode** — `read` forwards PDFs to the model; models without PDF input error. The chain is the primary path.
+- **Claude Code** — native `Read` renders PDF pages; prefer it for visual questions (charts, layout, multi-column). For plain text use the chain (≈300 tokens/page vs ≈1,600 rendered), and fall back to it when Read errors (false password reports, missing poppler).
 
 ## Chain (try in order)
 

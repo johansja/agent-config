@@ -85,6 +85,16 @@ host's waiting-for-user signal. No-op outside its host.
 
 **Test:** `node --test pi/notify-orca.test.mjs`
 
+### read-pdf-tool
+
+Registers a `read_pdf` tool — pi's built-in `read` does not support PDF.
+Extracts text via the first available of pdftotext, Ghostscript, or a
+throwaway pypdf venv, with 1-based page-range args, a 48k-char cap, and
+scanned/encrypted reporting surfaced to the user (no silent OCR). Implements
+the `read-pdf` skill's chain; on pi the skill defers to this tool.
+
+**Test:** `node --test pi/read-pdf-tool.test.mjs`
+
 ### Vendor-managed extensions (not in this repo)
 
 `~/.pi/agent/extensions/` also holds files installed and upgraded in place by
@@ -164,7 +174,7 @@ ln -sf "$PWD/global/AGENTS.md" ~/.claude/CLAUDE.md
 
 Symlinks ensure edits land immediately in all deployed agents without copying.
 
-Verified working against pi 0.85.1 · opencode 1.18.26 · Claude Code 2.1.231 (2026-09-08). Bump this line on each sync audit.
+Verified working against pi 0.85.1 · opencode 1.18.26 · Claude Code 2.1.231 (2026-09-08) — bump on each sync audit.
 
 ## References
 

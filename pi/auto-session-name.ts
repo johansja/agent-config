@@ -10,6 +10,10 @@
  *   - Fires once per session, on the first `agent_settled` event (i.e. after
  *     the initial exchange — including tool calls, retries, and any auto-
  *     compaction — has fully completed).
+ *   - The naming input is the first turn's full text (user + assistant,
+ *     truncated to 4000 chars), including any injected skill/command
+ *     scaffolding; the system prompt is tuned to title the real request, not
+ *     the scaffolding.
  *   - Only names brand-new sessions: at `session_start`, if the branch has
  *     zero prior user messages, we consider it fresh. Resumed (`pi -c`,
  *     `/resume`) and forked sessions already have prior turns and are left
@@ -28,7 +32,7 @@
  *     {
  *       "autoSessionName": {
  *         "model": "bitdeerai/zai-org/GLM-5.3-Flash",
- *         "maxChars": 60,
+ *         "maxChars": 80,
  *         "disabled": false
  *       }
  *     }
@@ -46,7 +50,10 @@
  *   PI_AUTO_SESSION_NAME_DEBUG     - "1"/"true"/"yes" logs diagnostics to stderr
  *                                    and emits ui.notify on naming/error.
  *                                    (env-only; not in settings.json)
- *   PI_AUTO_SESSION_NAME_MAX_CHARS - Truncate generated name to N chars (default 60).
+ *   PI_AUTO_SESSION_NAME_MAX_CHARS - Truncate generated name to N chars (default 80).
+ *                                    (The prompt's "3 to 8 words, under 80 characters"
+ *                                    describes the default; overriding changes the
+ *                                    truncation budget only.)
  *
  *   Request timeout and client-side retries come from pi's global
  *   retry.provider settings (~/.pi/agent/settings.json), same as agent-turn
@@ -91,7 +98,7 @@ type SessionEntry = {
 // Config
 // ---------------------------------------------------------------------------
 
-const DEFAULT_MAX_CHARS = 60;
+const DEFAULT_MAX_CHARS = 80;
 
 interface Config {
 	modelSpec: string | undefined;
@@ -199,71 +206,67 @@ export function countUserMessages(entries: SessionEntry[]): number {
 }
 
 /**
- * Build the naming input from session entries: the first user prompt and the
- * first assistant reply. Both are truncated to keep the LLM call cheap.
- * Returns null if there is no user message or no assistant message yet.
+ * Build the naming input: all user and assistant message text in the branch,
+ * joined and truncated to `budget` chars. Called at the first agent_settled,
+ * when the branch holds exactly turn 1 — the initial prompt (with any
+ * injected skill/command scaffolding), narration, and the assistant's reply
+ * summary, which is usually the best distillation of the task.
+ *
+ * Deliberately no scaffolding-unwrapping logic: injected skill/command bodies
+ * fit inside the budget alongside the real request, and the system prompt
+ * directs the model past them. Known limitation: when the real task sits deep
+ * inside a long injected body, the model may name the injected subject
+ * instead (~1/40 sessions in offline replay) — accepted in exchange for zero
+ * input-parsing rules.
  */
-export function buildConversationInput(
-	entries: SessionEntry[],
-	maxPerMessage = 800,
-): { user: string; assistant: string } | null {
-	let userText = "";
-	let assistantText = "";
-	let sawUser = false;
-	let sawAssistant = false;
-
+export function buildNamingInput(entries: SessionEntry[], budget = 4000): string {
+	const parts: string[] = [];
 	for (const entry of entries) {
 		if (entry.type !== "message" || !entry.message?.role) continue;
 		const role = entry.message.role;
-
-		if (role === "user" && !sawUser) {
-			const text = extractText(entry.message.content).trim();
-			if (text) {
-				sawUser = true;
-				userText = text.slice(0, maxPerMessage);
-			}
-		} else if (role === "assistant" && !sawAssistant) {
-			const text = extractText(entry.message.content).trim();
-			if (text) {
-				sawAssistant = true;
-				assistantText = text.slice(0, maxPerMessage);
-			}
-		}
-
-		if (sawUser && sawAssistant) break;
+		if (role !== "user" && role !== "assistant") continue;
+		const text = extractText(entry.message.content).trim();
+		if (text) parts.push(text);
 	}
-
-	if (!sawUser || !sawAssistant) return null;
-	return { user: userText, assistant: assistantText };
+	return parts.join("\n\n").slice(0, budget);
 }
 
 export const SYSTEM_PROMPT = [
 	"You generate a short title that summarizes a coding-agent conversation.",
-	"The title will be shown in a session picker alongside many other titles,",
-	"so it must be concise and distinctive.",
+	"The title is shown in a session picker alongside many other titles, so it must",
+	"be concise and distinctive.",
+	"",
+	"Input: the text of the conversation's first turn. It may contain injected",
+	"scaffolding (skill definitions, command templates) around the real request.",
+	"When a <skill> or command block appears, the actual request follows it, after",
+	"the closing tag — title that request, never the skill's own name.",
 	"",
 	"Rules:",
-	"- 3 to 6 words.",
+	"- 3 to 8 words, under 80 characters.",
 	"- Plain text. No quotes, no trailing punctuation, no emoji.",
-	"- Lowercase unless a word is a proper noun (a library, framework, file",
-	"  name, or brand).",
-	"- Describe the task or topic, not the conversation meta",
-	"  (avoid \"chat about\", \"session for\", \"help with\").",
-	"- Prefer concrete nouns from the user's request (file paths, feature",
-	"  names, error messages).",
+	"- Lowercase unless a word is a proper noun (library, framework, file name, brand).",
+	"- If the request references an identifier — ticket id (AIC-3523), issue/PR",
+	"  number (#876), MR (!94), job number, branch name — the title must include it.",
+	"- Describe the task, not the conversation meta. The words \"session\" and",
+	"  \"grilling\" must not appear; use \"skill\" only when the task itself is",
+	"  about a skill.",
+	"- Prefer concrete nouns: feature names, error messages, file paths.",
+	"",
+	"Examples of good titles:",
+	"- review managed-kubernetes-platform MR 126",
+	"- AIC-3523 spec writeback trace",
+	"- fix failed gitlab CI job 314275",
+	"- review plan workflow duplication (the request followed a skill block; the",
+	"  skill's own name was ignored)",
 	"",
 	"Reply with the title only.",
 ].join("\n");
 
-function buildUserPrompt(user: string, assistant: string): string {
+function buildUserPrompt(turnText: string): string {
 	return [
-		"Generate a short title for this coding-agent conversation.",
+		"Generate a short title for this coding-agent conversation's first turn.",
 		"",
-		"User:",
-		user,
-		"",
-		"Assistant (first reply):",
-		assistant,
+		turnText,
 		"",
 		"Reply with the title only. No explanation, no quotes, no punctuation.",
 	].join("\n");
@@ -301,6 +304,10 @@ export function sanitizeTitle(raw: string, maxChars: number): string {
 	}
 
 	text = text.trim();
+
+	// Degenerate outputs — provider control tokens or tool-call XML — would
+	// persist as garbage names. Skip naming instead.
+	if (/<\|[a-zA-Z]+\|>/.test(text) || /call\s+tool=["']/i.test(text)) return "";
 
 	// Strip markdown code fences: ``` ... ``` or ```text ... ```
 	text = text.replace(/^```[a-zA-Z]*\s*\n?/, "").replace(/\n?```\s*$/, "");
@@ -380,16 +387,15 @@ async function resolveModel(
 // ---------------------------------------------------------------------------
 
 /**
- * Ask the model for a short session title. Returns the raw response text
- * (un-sanitized). Throws on abort, provider error (after any client-side
- * retries), or empty response. Request timeout and retries come from the
- * caller's options, sourced from pi's retry.provider settings.
+ * Ask the model for a short session title from the turn-1 text. Returns the
+ * raw response text (un-sanitized). Throws on abort, provider error (after
+ * any client-side retries), or empty response. Request timeout and retries
+ * come from the caller's options, sourced from pi's retry.provider settings.
  */
 async function generateTitle(
 	model: Model<Api>,
 	modelRegistry: ModelRegistry,
-	user: string,
-	assistant: string,
+	turnText: string,
 	options: {
 		signal: AbortSignal | undefined;
 		timeoutMs: number | undefined;
@@ -402,7 +408,7 @@ async function generateTitle(
 		messages: [
 			{
 				role: "user",
-				content: buildUserPrompt(user, assistant),
+				content: buildUserPrompt(turnText),
 				timestamp: Date.now(),
 			},
 		],
@@ -507,11 +513,11 @@ export default function (pi: ExtensionAPI) {
 			return;
 		}
 
-		// Need a first user + first assistant exchange to name from.
+		// Need turn-1 text to name from.
 		const entries = ctx.sessionManager.getBranch() as SessionEntry[];
-		const convo = buildConversationInput(entries);
-		if (!convo) {
-			debugLog("no user+assistant exchange in branch, skipping");
+		const namingInput = buildNamingInput(entries);
+		if (!namingInput) {
+			debugLog("no user/assistant text in branch, skipping");
 			return;
 		}
 
@@ -525,7 +531,7 @@ export default function (pi: ExtensionAPI) {
 
 			debugLog(`naming with ${model.provider}/${model.id}`);
 			const providerRetry = readProviderRetry(ctx.cwd);
-			const rawTitle = await generateTitle(model, ctx.modelRegistry, convo.user, convo.assistant, {
+			const rawTitle = await generateTitle(model, ctx.modelRegistry, namingInput, {
 				signal: ctx.signal,
 				timeoutMs: providerRetry.timeoutMs,
 				maxRetries: providerRetry.maxRetries,

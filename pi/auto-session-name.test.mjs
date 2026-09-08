@@ -3,7 +3,7 @@
  *
  * Run with: node --test pi/auto-session-name.test.mjs
  *
- * Covers extractText(), countUserMessages(), buildConversationInput(),
+ * Covers extractText(), countUserMessages(), buildNamingInput(),
  * sanitizeTitle(), and SYSTEM_PROMPT — the deterministic logic that doesn't
  * require an LLM call.
  *
@@ -41,7 +41,7 @@ const mod = await jiti.import("./auto-session-name.ts");
 const {
 	extractText,
 	countUserMessages,
-	buildConversationInput,
+	buildNamingInput,
 	sanitizeTitle,
 	SYSTEM_PROMPT,
 } = mod;
@@ -141,132 +141,85 @@ describe("countUserMessages", () => {
 });
 
 // ---------------------------------------------------------------------------
-// buildConversationInput
+// buildNamingInput
 // ---------------------------------------------------------------------------
 
-describe("buildConversationInput", () => {
-	it("returns null when there are no messages", () => {
-		assert.equal(buildConversationInput([]), null);
-		assert.equal(
-			buildConversationInput([{ type: "compaction", summary: "..." }]),
-			null,
-		);
+describe("buildNamingInput", () => {
+	it("returns empty string when there are no messages", () => {
+		assert.equal(buildNamingInput([]), "");
+		assert.equal(buildNamingInput([{ type: "compaction", summary: "..." }]), "");
 	});
 
-	it("returns null when there is a user but no assistant message", () => {
+	it("joins user and assistant turn-1 text in entry order", () => {
 		const entries = [
-			{ type: "message", message: { role: "user", content: "help me" } },
-		];
-		assert.equal(buildConversationInput(entries), null);
-	});
-
-	it("returns null when there is an assistant but no user message", () => {
-		const entries = [
-			{ type: "message", message: { role: "assistant", content: "hi" } },
-		];
-		assert.equal(buildConversationInput(entries), null);
-	});
-
-	it("returns the first user and first assistant text from string content", () => {
-		const entries = [
-			{ type: "message", message: { role: "user", content: "fix the bug" } },
+			{ type: "message", message: { role: "user", content: "  fix the bug " } },
 			{ type: "message", message: { role: "assistant", content: "on it" } },
 		];
-		assert.deepEqual(buildConversationInput(entries), {
-			user: "fix the bug",
-			assistant: "on it",
-		});
+		assert.equal(buildNamingInput(entries), "fix the bug\n\non it");
 	});
 
-	it("uses only the first user and first assistant, ignoring later ones", () => {
+	it("includes the assistant's end-of-turn summary, not just the first reply", () => {
+		// The summary is usually the best distillation of the task — the whole
+		// point of concatenating rather than picking the first assistant text.
 		const entries = [
-			{ type: "message", message: { role: "user", content: "first user" } },
-			{ type: "message", message: { role: "assistant", content: "first assistant" } },
-			{ type: "message", message: { role: "user", content: "second user" } },
-			{ type: "message", message: { role: "assistant", content: "second assistant" } },
+			{ type: "message", message: { role: "user", content: "review MR 126" } },
+			{ type: "message", message: { role: "assistant", content: "Looking into it." } },
+			{ type: "message", message: { role: "assistant", content: "Summary: MR 126 adds retry logic." } },
 		];
-		assert.deepEqual(buildConversationInput(entries), {
-			user: "first user",
-			assistant: "first assistant",
-		});
+		const result = buildNamingInput(entries);
+		assert.ok(result.includes("Looking into it."));
+		assert.ok(result.includes("Summary: MR 126 adds retry logic."));
 	});
 
-	it("extracts text from content-block arrays", () => {
+	it("extracts text from content-block arrays, skipping non-text blocks", () => {
 		const entries = [
 			{
 				type: "message",
 				message: {
 					role: "user",
-					content: [{ type: "text", text: "hello" }, { type: "text", text: "world" }],
+					content: [
+						{ type: "text", text: "fix this" },
+						{ type: "image", data: "..." },
+					],
 				},
 			},
 			{
 				type: "message",
 				message: {
 					role: "assistant",
-					content: [{ type: "text", text: "hi there" }],
+					content: [
+						{ type: "thinking", thinking: "hmm" },
+						{ type: "toolCall", name: "read" },
+						{ type: "text", text: "sure" },
+					],
 				},
 			},
 		];
-		assert.deepEqual(buildConversationInput(entries), {
-			user: "hello\nworld",
-			assistant: "hi there",
-		});
+		assert.equal(buildNamingInput(entries), "fix this\n\nsure");
 	});
 
 	it("skips empty/whitespace-only messages and keeps scanning", () => {
 		const entries = [
 			{ type: "message", message: { role: "user", content: "   " } },
-			{ type: "message", message: { role: "user", content: "real prompt" } },
-			{ type: "message", message: { role: "assistant", content: "" } },
-			{ type: "message", message: { role: "assistant", content: "real reply" } },
+			{ type: "message", message: { role: "user", content: "real question" } },
 		];
-		assert.deepEqual(buildConversationInput(entries), {
-			user: "real prompt",
-			assistant: "real reply",
-		});
+		assert.equal(buildNamingInput(entries), "real question");
 	});
 
-	it("ignores toolResult messages when looking for user/assistant", () => {
+	it("ignores non-user/assistant roles (toolResult etc.)", () => {
 		const entries = [
-			{ type: "message", message: { role: "user", content: "run ls" } },
-			{ type: "message", message: { role: "assistant", content: [{ type: "toolCall", name: "bash" }] } },
-			{ type: "message", message: { role: "toolResult", content: "file1\nfile2" } },
-			{ type: "message", message: { role: "assistant", content: "here are the files" } },
+			{ type: "message", message: { role: "toolResult", content: "tool output" } },
+			{ type: "message", message: { role: "user", content: "question" } },
 		];
-		// First assistant has no text (only a toolCall), so we keep scanning
-		// and pick up the second assistant with "here are the files".
-		assert.deepEqual(buildConversationInput(entries), {
-			user: "run ls",
-			assistant: "here are the files",
-		});
+		assert.equal(buildNamingInput(entries), "question");
 	});
 
-	it("truncates long messages to maxPerMessage", () => {
-		const longUser = "x".repeat(1000);
-		const longAssistant = "y".repeat(1000);
+	it("truncates to the budget", () => {
 		const entries = [
-			{ type: "message", message: { role: "user", content: longUser } },
-			{ type: "message", message: { role: "assistant", content: longAssistant } },
+			{ type: "message", message: { role: "user", content: "u".repeat(5000) } },
 		];
-		const result = buildConversationInput(entries, 100);
-		assert.equal(result.user.length, 100);
-		assert.equal(result.assistant.length, 100);
-		assert.equal(result.user, "x".repeat(100));
-		assert.equal(result.assistant, "y".repeat(100));
-	});
-
-	it("does not require assistant to come after user in entry order", () => {
-		// Session branches can have any order in edge cases; we scan the whole
-		// branch for the first user and first assistant independently.
-		const entries = [
-			{ type: "message", message: { role: "assistant", content: "reply" } },
-			{ type: "message", message: { role: "user", content: "prompt" } },
-		];
-		assert.deepEqual(buildConversationInput(entries), {
-			user: "prompt",
-			assistant: "reply",
-		});
+		assert.equal(buildNamingInput(entries).length, 4000);
+		assert.equal(buildNamingInput(entries, 100).length, 100);
 	});
 });
 
@@ -421,6 +374,25 @@ describe("sanitizeTitle", () => {
 	});
 
 	// ------------------------------------------------------------------
+	// Degenerate outputs (control tokens / tool-call XML from
+	// OpenAI-compatible gateways) — skip naming rather than persist garbage
+	// ------------------------------------------------------------------
+
+	it("returns empty for provider control-token tool-call garbage", () => {
+		const garbage =
+			"<|" + "open|>tools<|" + "sep|><|" + "open|>call tool=\"write_file\" ...";
+		assert.equal(sanitizeTitle(garbage, 80), "");
+	});
+
+	it("returns empty for bare tool-call XML", () => {
+		assert.equal(sanitizeTitle('call tool="write_file" fix it', 80), "");
+	});
+
+	it("does not misfire on normal titles containing pipes", () => {
+		assert.equal(sanitizeTitle("fix a | b edge case", 80), "fix a | b edge case");
+	});
+
+	// ------------------------------------------------------------------
 	// Edge cases not covered above (boundary, case-sensitivity, regex)
 	// ------------------------------------------------------------------
 
@@ -473,8 +445,12 @@ describe("sanitizeTitle", () => {
 // ---------------------------------------------------------------------------
 
 describe("system prompt content", () => {
-	it("asks for 3 to 6 words", () => {
-		assert.match(SYSTEM_PROMPT, /3 to 6 words/);
+	it("asks for 3 to 8 words under 80 characters", () => {
+		assert.match(SYSTEM_PROMPT, /3 to 8 words, under 80 characters/);
+	});
+
+	it("requires identifiers referenced in the request to appear in the title", () => {
+		assert.match(SYSTEM_PROMPT, /the title must include it/);
 	});
 
 	it("forbids quotes and trailing punctuation", () => {

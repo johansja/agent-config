@@ -58,7 +58,50 @@ const jiti = createJiti(import.meta.url, {
 	},
 });
 const ext = await jiti.import(path.join(HERE, "auto-session-name.ts"));
-const { extractText, buildConversationInput, sanitizeTitle, SYSTEM_PROMPT } = ext;
+const { extractText, sanitizeTitle } = ext;
+
+// Frozen replica of the pre-revamp system prompt (used by A0/A2 baseline arms;
+// the extension's exported SYSTEM_PROMPT is the new prompt). sanitizeTitle is
+// shared across arms — its control-token guard changes nothing for normal
+// titles, and flags rare degenerate output uniformly.
+const SYSTEM_PROMPT = [
+	"You generate a short title that summarizes a coding-agent conversation.",
+	"The title will be shown in a session picker alongside many other titles,",
+	"so it must be concise and distinctive.",
+	"",
+	"Rules:",
+	"- 3 to 6 words.",
+	"- Plain text. No quotes, no trailing punctuation, no emoji.",
+	"- Lowercase unless a word is a proper noun (a library, framework, file",
+	"  name, or brand).",
+	"- Describe the task or topic, not the conversation meta",
+	"  (avoid \"chat about\", \"session for\", \"help with\").",
+	"- Prefer concrete nouns from the user's request (file paths, feature",
+	"  names, error messages).",
+	"",
+	"Reply with the title only.",
+].join("\n");
+
+// Frozen replica of the pre-revamp input builder (first user + first assistant
+// text, 800 chars each). The extension no longer exports it; A0/A1 stay pinned
+// to the historical pipeline so results stay comparable across rounds.
+function buildConversationInput(entries, maxPerMessage = 800) {
+	let userText = "", assistantText = "", sawUser = false, sawAssistant = false;
+	for (const entry of entries) {
+		if (entry.type !== "message" || !entry.message?.role) continue;
+		const role = entry.message.role;
+		if (role === "user" && !sawUser) {
+			const t = extractText(entry.message.content).trim();
+			if (t) { sawUser = true; userText = t.slice(0, maxPerMessage); }
+		} else if (role === "assistant" && !sawAssistant) {
+			const t = extractText(entry.message.content).trim();
+			if (t) { sawAssistant = true; assistantText = t.slice(0, maxPerMessage); }
+		}
+		if (sawUser && sawAssistant) break;
+	}
+	if (!sawUser || !sawAssistant) return null;
+	return { user: userText, assistant: assistantText };
+}
 
 // Verbatim replica of the extension's private buildUserPrompt (old-prompt arms).
 function buildUserPromptOld(user, assistant) {

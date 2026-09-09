@@ -15,6 +15,7 @@ agent-config/
 ├── skills/                    # shared model-invoked skills — symlinked by ALL agents
 │   └── <name>/SKILL.md        # each skill lives in its own subdir
 ├── commands/                  # shared slash-command templates — symlinked by ALL agents
+├── scripts/                   # versioned helper harnesses — symlinked into ~/.pi/agent/bin/
 ├── pi/                        # pi-specific artifacts
 │   ├── *.ts                   # single-file extensions (root of pi/)
 │   ├── *.mjs                  # tests alongside their extension
@@ -113,6 +114,8 @@ They cover session lifecycle; the blocked-state seam belongs to `notify-*`.
 
 Slash-command templates (markdown with YAML frontmatter). Compatible with pi (`prompts/`), opencode (`commands/`), and Claude Code (`commands/`). Each lives in `commands/<name>.md` and is symlinked into `~/.pi/agent/prompts/`, `~/.config/opencode/commands/`, and `~/.claude/commands/`.
 
+Commands are how this repo encodes a **workflow**: a recurring cross-session intent-sequence (e.g. work-on-ticket, review-MR) distilled into one invocable template that composes skills and subagents.
+
 ## Global rules (shared)
 
 `global/AGENTS.md` is the single canonical rules file. `~/.pi/agent/AGENTS.md`, `~/.config/opencode/AGENTS.md`, and `~/.claude/CLAUDE.md` all symlink to it — same rules in every session. (Claude Code's memory file is `CLAUDE.md`; the content is agent-agnostic markdown.) Editing it is the only way to change agent behavior across all agents in one step.
@@ -171,6 +174,10 @@ ln -sf "$PWD/skills/<name>" ~/.claude/skills/<name>
 ln -sf "$PWD/commands/<name>.md" ~/.pi/agent/prompts/<name>.md
 ln -sf "$PWD/commands/<name>.md" ~/.config/opencode/commands/<name>.md
 ln -sf "$PWD/commands/<name>.md" ~/.claude/commands/<name>.md
+
+# Scripts → ~/.pi/agent/bin/
+mkdir -p ~/.pi/agent/bin
+ln -sf "$PWD/scripts/bench-models.mjs" ~/.pi/agent/bin/bench-models.mjs
 
 # Global rules → ~/.pi/agent/AGENTS.md, ~/.config/opencode/AGENTS.md, ~/.claude/CLAUDE.md
 ln -sf "$PWD/global/AGENTS.md" ~/.pi/agent/AGENTS.md

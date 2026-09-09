@@ -1,11 +1,11 @@
 ---
-description: "Launch a unit of work in Herdr — worktree + agent kickoff in one step; ticket claim happens in-session after a readiness check. Routes Jira tickets and GitLab MRs."
+description: "Launch a unit of work in Herdr — worktree + agent kickoff; ticket claim happens in-session after a readiness check. Routes Jira tickets and GitLab MRs."
 argument-hint: "<jira ticket (URL or AIC-NNNN) | gitlab MR url> [--kind pi|opencode|claude]"
 ---
 
 Target: **$ARGUMENTS**
 
-Orchestrates the enclosing Herdr session. Gate: stop unless `HERDR_ENV=1`. Load the `herdr` skill for CLI contracts; learn exact syntax from the installed binary (`herdr worktree`, `herdr workspace`, `herdr agent`) before mutating. Parse IDs from JSON responses. Create everything with `--no-focus`; the user's focus stays in the calling pane.
+Orchestrates the enclosing Herdr session. Gate: stop unless `HERDR_ENV=1`. Load the `herdr` skill for CLI contracts; learn exact syntax from the installed binary (`herdr worktree`, `herdr workspace`, `herdr agent`) before mutating. Parse IDs from JSON responses. Create everything with `--no-focus`.
 
 Base repo: git root of the current directory. Worktrees live at `~/.herdr/worktrees/<repo-name>/`.
 
@@ -39,10 +39,9 @@ Base repo: git root of the current directory. Worktrees live at `~/.herdr/worktr
 1. `glab mr view <url>`: source branch, repo. The base repo must be the current git repo's origin — otherwise stop and report.
 2. Create the herdr worktree tracking the MR's source branch, reusing any existing one.
 3. Workspace named `mr-<iid>-<short-slug>`; start the agent in its root pane, cwd = the worktree.
-4. Kickoff: `herdr agent prompt <name> "/gitlab-review <mr-url>"` — do not wait. Report the workspace ID.
+4. Kickoff via `herdr agent prompt` with `/gitlab-review <mr-url>` — do not wait for completion. Report the workspace ID.
 
 ## Rules
 
 - One work item per invocation; never batch tickets.
-- `/work` never mutates ticket state. A ticket transitions to *In Progress* only inside the spawned session, after readiness is established.
-- /work only sets the table: worktree, claim, agent. Cleanup of finished workspaces/worktrees is a separate decision, never automatic.
+- `/work` only sets the table: worktree, workspace, agent. Cleanup of finished workspaces/worktrees is a separate decision, never automatic.

@@ -32,6 +32,10 @@ Base repo: git root of the current directory. Worktrees live at `~/.herdr/worktr
    me, transition to In Progress; skip steps already satisfied), then run the
    session. If not ready: reply starting with `NOT-READY:` plus what is missing
    or blocking, do not claim, and stop.
+
+   Lifecycle: when implementation lands — run the simplify pass,
+   /fix-hard-violations, then /ship. On review comments: /mr-comments.
+   On approval: /merge.
    ```
 
 ## MR flow

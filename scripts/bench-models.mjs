@@ -61,7 +61,8 @@ async function benchOnce(model, prompt, maxTokens) {
         if (data === '[DONE]') break;
         try {
           const j = JSON.parse(data);
-          const delta = j.choices?.[0]?.delta?.content;
+          const d = j.choices?.[0]?.delta;
+          const delta = (d?.content ?? '') || (d?.reasoning_content ?? ''); // reasoning models stream reasoning_content
           if (delta) {
             if (ttft === null) ttft = performance.now() - t0;
             completion = j.usage?.completion_tokens ?? completion + 1; // chunk≈token fallback, refined by usage

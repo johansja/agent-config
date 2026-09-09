@@ -1,5 +1,5 @@
 ---
-description: "Launch a unit of work in Herdr — worktree, ticket claim, and agent kickoff in one step. Routes Jira tickets and GitLab MRs."
+description: "Launch a unit of work in Herdr — worktree + agent kickoff in one step; ticket claim happens in-session after a readiness check. Routes Jira tickets and GitLab MRs."
 argument-hint: "<jira ticket (URL or AIC-NNNN) | gitlab MR url> [--kind pi|opencode|claude]"
 ---
 
@@ -18,11 +18,21 @@ Base repo: git root of the current directory. Worktrees live at `~/.herdr/worktr
 
 ## Ticket flow
 
-1. Resolve the ticket via the atlassian MCP: key, summary, type.
-2. Create the herdr worktree, branch `<type>-<key>` lowercase (type mapped from the ticket: feat/fix/chore/docs/…), on an up-to-date default branch. If the branch/worktree already exists, reuse it and say so.
-3. Claim: assign to self + transition to *In Progress*; skip each step already satisfied. Never reassign away from someone else — stop and ask.
+1. Resolve the ticket via the atlassian MCP: key, summary, type, assignee, status.
+2. Guard — read-only: ticket assigned to someone else and *In Progress* → stop, report, create nothing.
+3. Create the herdr worktree, branch `<type>-<key>` lowercase (type mapped from the ticket: feat/fix/chore/docs/…), on an up-to-date default branch. If the branch/worktree already exists, reuse it and say so.
 4. Create a herdr **workspace** named `<key>-<short-slug>`; start the agent in its root pane, cwd = the new worktree.
-5. Kickoff via `herdr agent prompt <name> "/grill-with-docs work on <ticket-url>"` — do not wait for completion. Report the workspace ID.
+5. Kickoff via `herdr agent prompt` — do not wait for completion. Report the workspace ID. Prompt text:
+
+   ```
+   /grill-with-docs work on <ticket-url>
+
+   First assess readiness: is this ticket actionable as written — not blocked,
+   not already done, no prerequisite outside it? If ready: claim it (assign to
+   me, transition to In Progress; skip steps already satisfied), then run the
+   session. If not ready: reply starting with `NOT-READY:` plus what is missing
+   or blocking, do not claim, and stop.
+   ```
 
 ## MR flow
 
@@ -34,4 +44,5 @@ Base repo: git root of the current directory. Worktrees live at `~/.herdr/worktr
 ## Rules
 
 - One work item per invocation; never batch tickets.
+- `/work` never mutates ticket state. A ticket transitions to *In Progress* only inside the spawned session, after readiness is established.
 - /work only sets the table: worktree, claim, agent. Cleanup of finished workspaces/worktrees is a separate decision, never automatic.

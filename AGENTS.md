@@ -11,6 +11,7 @@ This repo is the source-of-truth for pi, opencode, and Claude Code agent artifac
 - **`claude/`** — Claude Code-specific artifacts. Currently `claude/agents/review.md`, symlinked into `~/.claude/agents/`. Only subagents without a Claude Code built-in equivalent are mirrored here: `general`/`plan`/`scout` are covered by the built-in `general-purpose`/`Plan`/`Explore`, so only `review` is shipped. The body is identical to the pi/opencode copies; the frontmatter uses Claude Code's schema (PascalCase `tools:`, `model: inherit`).
 - **`skills/`** — shared model-invoked skills (Agent Skills standard). Each lives under `skills/<name>/SKILL.md` and is symlinked into `~/.agents/skills/` (pi + opencode) and `~/.claude/skills/` (Claude Code).
 - **`commands/`** — shared slash-command templates (markdown with YAML frontmatter). Compatible with pi (`prompts/`), opencode (`commands/`), and Claude Code (`commands/`). Symlinked into `~/.pi/agent/prompts/`, `~/.config/opencode/commands/`, and `~/.claude/commands/`.
+- **`scripts/`** — versioned helper harnesses (e.g., `bench-models.mjs`), symlinked into `~/.pi/agent/bin/` and invoked from commands. No npm/package.json — plain Node ESM, zero deps.
 - **`global/`** — canonical global rules. `global/AGENTS.md` is symlinked by `~/.pi/agent/AGENTS.md`, `~/.config/opencode/AGENTS.md`, and `~/.claude/CLAUDE.md` (Claude Code's memory file) — same rules in every agent. Editing this file is the only step to change agent behavior across all of them.
 - **`.pi/workflow/`** — pi's live session state (gitignored). Not deployed.
 

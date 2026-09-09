@@ -9,4 +9,4 @@ Target: **$ARGUMENTS** — default the open MR for the current branch.
 2. Branch behind the repo's default branch → merge the default branch in, push, wait for green. No rebases, no force-pushes.
 3. `glab mr merge`. Fast-forward the local default branch.
 4. Jira: the ticket key rides in the branch name (`<type>-aic-NNNN`). Via the atlassian MCP list the issue's real transitions; transition to the done-equivalent — prefer "Done"; absent or ambiguous → show the actual transitions and ask.
-5. Report what shipped, then recommend what's next — grounded in real state, never generic. Weigh the candidates: items deferred in this session, parked `NOT-READY` workspaces, MRs waiting on the user, their open Jira tickets (atlassian MCP). One line each, best first; name the one to `/work` next. Nothing anywhere → say so.
+5. Report what shipped and recommend the next thing to `/work`.

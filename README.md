@@ -114,7 +114,7 @@ They cover session lifecycle; the blocked-state seam belongs to `notify-*`.
 
 Slash-command templates (markdown with YAML frontmatter). Compatible with pi (`prompts/`), opencode (`commands/`), and Claude Code (`commands/`). Each lives in `commands/<name>.md` and is symlinked into `~/.pi/agent/prompts/`, `~/.config/opencode/commands/`, and `~/.claude/commands/`.
 
-Commands are how this repo encodes a **workflow**: a recurring cross-session intent-sequence (e.g. work-on-ticket, review-MR) distilled into one invocable template that composes skills and subagents.
+Commands are how this repo encodes a **workflow**: a recurring cross-session intent-sequence (e.g. work-on-ticket, review-MR) distilled into one invocable template that composes skills and subagents. Encode rails, not synthesis: actions, mutations, and never-rules are spelled out; reasoning is left open.
 
 ## Global rules (shared)
 

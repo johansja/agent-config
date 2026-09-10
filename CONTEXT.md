@@ -44,6 +44,15 @@ a pi/opencode/Claude Code project.
   the deletion pass: for each component or abstraction in a proposed plan, ask
   which requirement dies if it's cut; cut orphans before they're written.
   Complexity is cheapest to delete at plan time.
+- **Existence grilling** — the deletion pass lifted one level: when a grilling
+  session's subject would produce change — a ticket, a plan, an inline ask —
+  the session opens by grilling the item's right to exist, before anything
+  inside it. Verdicts: **proceed**, **descope**, **defer**, **kill**; the
+  judgment is the user's. Mechanics live in the grilling skill.
+- **Mootness check** — the factual half of existence grilling's evidence:
+  is the item already done, duplicated, or superseded? Procedure lives in the
+  grilling skill; also re-run at `/gitlab-review` (surfaced) and `/merge`
+  (gating).
 
 ### Session naming actors
 

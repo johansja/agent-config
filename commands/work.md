@@ -28,14 +28,19 @@ Base repo: git root of the current directory. Worktrees live at `~/.herdr/worktr
    /grill-with-docs work on <ticket-url>
 
    First assess readiness: is this ticket actionable as written — not blocked,
-   not already done, no prerequisite outside it? If ready: claim it (assign to
+   not moot (the mootness check, `grilling` skill), no prerequisite outside
+   it? If ready: claim it (assign to
    me, transition to In Progress; skip steps already satisfied), then run the
    session. If not ready: reply starting with `NOT-READY:` plus what is missing
    or blocking, do not claim, and stop.
 
-   Lifecycle: when implementation lands — run the simplify pass,
-   /fix-hard-violations, then /ship. On review comments: /mr-comments.
-   On approval: /merge.
+   Lifecycle: an existence grilling verdict stops or trims the work before
+   implementation — kill/defer: propose a Jira comment + transition via the
+   atlassian MCP (list the real transitions; Duplicate resolution when a twin
+   exists); descope: propose trimming the ticket's title and description.
+   Execute these writes only on the user's yes. When implementation lands —
+   run the simplify pass, /fix-hard-violations, then /ship. On review
+   comments: /mr-comments. On approval: /merge.
    ```
 
 ## MR flow

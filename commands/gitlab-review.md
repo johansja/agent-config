@@ -5,6 +5,13 @@ argument-hint: "<mr id|url>"
 
 Run `code-review` on the GitLab MR at **$ARGUMENTS**; show the full report inline.
 
+## Context
+
+Before invoking:
+
+1. Resolve the Jira ticket: key from the MR's source branch (`<type>-aic-NNNN`), fallback the MR description; fetch it via the atlassian MCP. The ticket is the Spec axis's spec source — it satisfies the skip-decision, its text goes in the Spec subagent's brief (no MCP access), and `## Motivation` quotes it, not the `--fill` description.
+2. Run the mootness check (`grilling` skill). Append its findings to the report as a `## Mootness` section; they never affect the verdict.
+
 ## Posting (glab)
 
 - **Verdict FAIL** → draft one MR-level note and show it inline in full, stop and ask;

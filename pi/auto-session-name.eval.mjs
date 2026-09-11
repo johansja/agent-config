@@ -12,7 +12,8 @@
  * Env:
  *   BITDEERAI_API_KEY   (required) gateway key
  *   EVAL_BASE_URL       default https://api-inference.bitdeer.ai/v1
- *   EVAL_MODEL          default moonshotai/Kimi-K3 (same as production naming)
+ *   EVAL_MODEL          default: production naming model (autoSessionName.model in
+ *                       ~/.pi/agent/settings.json, provider prefix stripped)
  *   EVAL_CONCURRENCY    default 3
  *   EVAL_OUT            results JSON path, default /tmp/auto-session-name-eval.json
  *   EVAL_ARMS           comma list of arm ids to run (default: all)
@@ -42,6 +43,7 @@
 
 import { execSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -292,7 +294,17 @@ function extractIds(text) {
 
 // --- LLM calls -----------------------------------------------------------------
 const BASE_URL = process.env.EVAL_BASE_URL ?? "https://api-inference.bitdeer.ai/v1";
-const MODEL = process.env.EVAL_MODEL ?? "moonshotai/Kimi-K3";
+// Default mirrors production: resolve autoSessionName.model from the deployed pi
+// settings rather than hardcoding a model that drifts on every fleet swap.
+function productionNamingModel() {
+	try {
+		const s = JSON.parse(fs.readFileSync(path.join(os.homedir(), ".pi/agent/settings.json"), "utf8"));
+		const m = s?.autoSessionName?.model;
+		if (typeof m === "string" && m.trim()) return m.trim().replace(/^[^/]+\//, "");
+	} catch { /* fall through to the hard failure below */ }
+	return null;
+}
+const MODEL = process.env.EVAL_MODEL ?? productionNamingModel();
 const API_KEY = process.env.BITDEERAI_API_KEY;
 
 async function generate(systemPrompt, userPrompt) {
@@ -378,6 +390,7 @@ if (process.env.EVAL_ONLY_INPUTS === "1") {
 	process.exit(0);
 }
 if (!API_KEY) { console.error("BITDEERAI_API_KEY required"); process.exit(1); }
+if (!MODEL) { console.error("no EVAL_MODEL and no autoSessionName.model in ~/.pi/agent/settings.json"); process.exit(1); }
 
 const jobs = [];
 for (const c of corpus) {

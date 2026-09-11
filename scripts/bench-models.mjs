@@ -6,7 +6,7 @@
 const BASE = process.env.BITDEERAI_API_BASE ?? 'https://api-inference.bitdeer.ai/v1';
 const KEY = process.env.BITDEERAI_API_KEY;
 const DEFAULT_MODELS = [
-  'deepseek-ai/DeepSeek-V4-Flash',
+  'deepseek-ai/DeepSeek-V4.1-Flash',
   'zai-org/GLM-5.2',
   'moonshotai/Kimi-K3',
   'MiniMaxAI/MiniMax-M3',

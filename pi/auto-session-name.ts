@@ -700,15 +700,22 @@ export default function (pi: ExtensionAPI) {
 				}
 
 				debugLog(`rename: summarizing ${messages.length} branch messages with ${model.provider}/${model.id}`);
-				const { apiKey, headers } = await ctx.modelRegistry.getApiKeyAndHeaders(model);
+				const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
+				if (!auth.ok) {
+					throw new Error(`no credentials for ${model.provider}/${model.id}: ${auth.error}`);
+				}
+				const { apiKey, headers } = auth;
 				// thinkingLevel "low" mirrors the naming call: fast summaries from
 				// models that otherwise default to max effort server-side.
+				// generateSummary's declared params predate ProviderHeaders, but the
+				// implementation forwards headers to the provider stream unchanged —
+				// null deletion markers included.
 				const summary = await generateSummary(
 					messages as Parameters<typeof generateSummary>[0],
 					model,
 					DEFAULT_COMPACTION_SETTINGS.reserveTokens,
 					apiKey,
-					headers,
+					headers as Record<string, string> | undefined,
 					ctx.signal,
 					undefined,
 					undefined,

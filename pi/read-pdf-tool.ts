@@ -164,7 +164,7 @@ export default function (pi: ExtensionAPI) {
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const cwd = (ctx as { cwd?: string } | undefined)?.cwd ?? process.cwd();
 			const file = path.resolve(cwd, params.path);
-			const fail = (text: string) => ({ content: [{ type: "text" as const, text }] });
+			const fail = (text: string) => ({ content: [{ type: "text" as const, text }], details: undefined });
 
 			if (!fs.existsSync(file)) return fail(`No such file: ${file}`);
 			if (path.extname(file).toLowerCase() !== ".pdf") return fail(`Not a PDF file: ${file}`);
@@ -195,7 +195,7 @@ export default function (pi: ExtensionAPI) {
 					? `pages ${first ?? 1}-${last ?? "?"}`
 					: `${result.pages} page(s)`;
 			const header = `[via ${result.extractor} · ${rangeNote} · ${chars.toLocaleString()} chars${truncated ? ` · truncated at ${MAX_CHARS} — narrow first_page/last_page` : ""}]`;
-			return { content: [{ type: "text" as const, text: `${header}\n\n${text}` }] };
+			return { content: [{ type: "text" as const, text: `${header}\n\n${text}` }], details: undefined };
 		},
 	});
 }

@@ -1,0 +1,46 @@
+{
+  "lastChangelogVersion": "0.99.2",
+  "packages": [
+    "npm:@johansja/pi-permission-gate"
+  ],
+  "defaultProvider": "bitdeerai",
+  "defaultModel": "zai-org/GLM-5.3-Flash",
+  "permissionGate": {
+    "model": "bitdeerai/zai-org/GLM-5.3-Flash",
+    "reasoningEffort": "high",
+    "blockLevel": "medium",
+    "maxTokens": 32000
+  },
+  "autoSessionName": {
+    "model": "bitdeerai/zai-org/GLM-5.3-Flash"
+  },
+  "defaultThinkingLevel": "max",
+  "retry": {
+    "maxRetries": 5,
+    "baseDelayMs": 10000,
+    "provider": {
+      "maxRetries": 5
+    }
+  },
+  "theme": "system",
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 32000
+  },
+  "terminal": {
+    "showTerminalProgress": true
+  },
+  "hideThinkingBlock": true,
+  "treeFilterMode": "default",
+  "tuiMode": "fullscreen",
+  "fullscreenScrollbar": "auto",
+  "autocompleteMaxVisible": 10,
+  "quietStartup": false,
+  "enabledModels": [
+    "bitdeerai/moonshotai/Kimi-K3",
+    "bitdeerai/deepseek-ai/DeepSeek-V4-Pro",
+    "bitdeerai/deepseek-ai/DeepSeek-V4.1-Flash",
+    "bitdeerai/zai-org/GLM-5.3",
+    "bitdeerai/zai-org/GLM-5.3-Flash"
+  ]
+}

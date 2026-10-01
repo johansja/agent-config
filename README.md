@@ -19,6 +19,7 @@ agent-config/
 ├── pi/                        # pi-specific artifacts
 │   ├── *.ts                   # single-file extensions (root of pi/)
 │   ├── *.mjs                  # tests alongside their extension
+│   ├── config/                # pi settings.json + models.json — symlinked into ~/.pi/agent/
 │   └── agents/                # subagent templates
 ├── opencode/                  # opencode-specific artifacts
 │   └── agents/
@@ -137,6 +138,12 @@ Reinstall sources:
 | search-company-knowledge | Atlassian MCP |
 | powerpoint | custom (possibly skills.sh) |
 
+## Config (pi)
+
+`pi/config/settings.json` and `pi/config/models.json` are symlinked into `~/.pi/agent/`, so edits (and pi's own writes) land in this repo directly. pi rewrites `settings.json` at runtime — `lastChangelogVersion` on every upgrade, plus `/theme` and model-toggle changes — so expect a small dirty diff after upgrades; commit it. `models.json` is hand-edited only.
+
+Deliberately not versioned: `pi-permissions.jsonc`, `ship-reviewers.json`, and `trust.json` (pi-local; machine/team-specific or auto-regenerated), and `auth.json` / `mcp-auth.json` (credentials — never commit). The `go-deps-update` skill is also pi-local.
+
 ## Installation
 
 Clone, then symlink each artifact class to its deployment target:
@@ -178,6 +185,10 @@ ln -sf "$PWD/commands/<name>.md" ~/.claude/commands/<name>.md
 # Scripts → ~/.pi/agent/bin/
 mkdir -p ~/.pi/agent/bin
 ln -sf "$PWD/scripts/bench-models.mjs" ~/.pi/agent/bin/bench-models.mjs
+
+# Pi config → ~/.pi/agent/
+ln -sf "$PWD/pi/config/settings.json" ~/.pi/agent/settings.json
+ln -sf "$PWD/pi/config/models.json" ~/.pi/agent/models.json
 
 # Global rules → ~/.pi/agent/AGENTS.md, ~/.config/opencode/AGENTS.md, ~/.claude/CLAUDE.md
 ln -sf "$PWD/global/AGENTS.md" ~/.pi/agent/AGENTS.md

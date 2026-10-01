@@ -1,0 +1,196 @@
+// pi custom models — Bitdeer AI (OpenAI-compatible endpoint).
+//
+// contextWindow/maxTokens are gateway-verified, not vendor headline: the gateway
+// 400s (masked into a generic "invalid request" pi can't recover from) once
+// prompt + max_completion_tokens exceed the pod's real limit, and compaction
+// fires at contextWindow − reserveTokens. Oversized requests may not 400 at
+// all — the gateway can silently fall back to another pool serving a
+// different model, so contextWindow is the serving pool's real limit, never
+// just what the gateway accepts (limits differ per pool/region: GLM-5.3-Flash
+// was 262144-capped on the JP pool, SG serves it 1M+). 1M-class models sit at
+// 1000000, not the weights' raw 1048576, for boundary headroom.
+//
+// All models are always-on reasoners (reasoning_content). thinkingLevelMap null
+// = never send reasoning_effort (per-model server defaults noted inline).
+//
+// compat facts (family-wide; canonical here, per-model notes inline):
+// - requiresReasoningContentOnAssistantMessages = Preserved Thinking replay of
+//   prior turns' reasoning_content — required for K3 multi-turn/tool-call
+//   continuity, harmless for the rest.
+// - supportsDeveloperRole=false on DS+GLM: their pods ignore role "developer",
+//   so strict-JSON contracts degrade to prose with latency spikes. K3 is the
+//   opposite — verified compliant under developer. Change only with a
+//   gateway-side fix, then re-verify with the probe.
+//
+// Request lifetime: streaming completions are hard-cut at ≈600s wall-clock
+// (Envoy route timeout behind Cloudflare; reproduced on K3 and DS-Flash pools).
+// The SSE stream ends cleanly — no finish_reason, no usage — so a long
+// generation surfaces as a silently truncated 200. Effective per-request output
+// is speed-bound, whatever maxTokens says: ≈50K tokens at ~85 tok/s (K3),
+// ≈90K at ~150 tok/s (DS-V4.1-Flash). Raise the gateway timeout before raising any
+// maxTokens.
+{
+  "providers": {
+    "bitdeerai": {
+      "baseUrl": "https://api-inference.bitdeer.ai/v1",
+      "api": "openai-completions",
+      "apiKey": "$BITDEERAI_API_KEY",
+      "models": [
+        {
+          // Effort high/max only; serves 384K output at high/max.
+          "id": "deepseek-ai/DeepSeek-V4-Pro",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": null,
+            "medium": null,
+            "high": "high",
+            "xhigh": null,
+            "max": "max"
+          },
+          "contextWindow": 1000000,
+          "maxTokens": 384000,
+          "cost": {
+            "input": 0.435,
+            "output": 0.87,
+            "cacheRead": 0.004,
+            "cacheWrite": 0
+          },
+          "compat": {
+            "supportsDeveloperRole": false,
+            "supportsReasoningEffort": true,
+            "requiresReasoningContentOnAssistantMessages": true
+          }
+        },
+        {
+          // Multimodal (image input gateway-probed). Effort low/high/max.
+          // max_completion_tokens caps reasoning + visible combined — small
+          // caps can yield empty visible content. 1M+ ctx probe-verified:
+          // prompt 1,044,062 + completion → 200. Decode ~150–195 tok/s.
+          "id": "deepseek-ai/DeepSeek-V4.1-Flash",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": null,
+            "high": "high",
+            "xhigh": null,
+            "max": "max"
+          },
+          "contextWindow": 1000000,
+          "maxTokens": 384000,
+          "cost": {
+            "input": 0.3,
+            "output": 1.2,
+            "cacheRead": 0.006,
+            "cacheWrite": 0
+          },
+          "compat": {
+            "supportsDeveloperRole": false,
+            "supportsReasoningEffort": true,
+            "requiresReasoningContentOnAssistantMessages": true
+          }
+        },
+        {
+          // Always thinks (server default max). Effort changes invalidate its prefix
+          // cache — one effort per session; never switch INTO K3 mid-session.
+          // 1M+ ctx probe-verified: prompt 1,027,109 + completion → 200.
+          "id": "moonshotai/Kimi-K3",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": null,
+            "high": "high",
+            "xhigh": null,
+            "max": "max"
+          },
+          "contextWindow": 1000000,
+          "maxTokens": 131072,
+          "input": [
+            "text",
+            "image"
+          ],
+          "cost": {
+            "input": 3,
+            "output": 15,
+            "cacheRead": 0.3,
+            "cacheWrite": 0
+          },
+          "compat": {
+            "supportsReasoningEffort": true,
+            "requiresReasoningContentOnAssistantMessages": true
+          }
+        },
+        {
+          // Text-only. GLM family defaults to max effort if the field is omitted or unknown.
+          "id": "zai-org/GLM-5.3",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": null,
+            "high": "high",
+            "xhigh": null,
+            "max": "max"
+          },
+          "contextWindow": 1000000,
+          "maxTokens": 131072,
+          "cost": {
+            "input": 1.4,
+            "output": 4.4,
+            "cacheRead": 0.26,
+            "cacheWrite": 0
+          },
+          "compat": {
+            "supportsDeveloperRole": false,
+            "supportsReasoningEffort": true,
+            "requiresReasoningContentOnAssistantMessages": true
+          }
+        },
+        {
+          // Vision-capable. SG pool serves 1M+ — probe-verified: prompt 1,026,932 +
+          // completion → 200, response model zai-org/GLM-5.3-Flash (no cross-pool
+          // fallback). Can burn the whole max_completion_tokens budget as
+          // reasoning_content below ~512.
+          "id": "zai-org/GLM-5.3-Flash",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": null,
+            "high": "high",
+            "xhigh": null,
+            "max": "max"
+          },
+          "contextWindow": 1000000,
+          "maxTokens": 131072,
+          "cost": {
+            "input": 0.15,
+            "output": 0.5,
+            "cacheRead": 0.03,
+            "cacheWrite": 0
+          },
+          "compat": {
+            "supportsDeveloperRole": false,
+            "supportsReasoningEffort": true,
+            "requiresReasoningContentOnAssistantMessages": true
+          }
+        }
+      ]
+    }
+  }
+}

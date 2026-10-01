@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "exa": {
+      "url": "https://mcp.exa.ai/mcp"
+    },
+    "parallel-search": {
+      "url": "https://search.parallel.ai/mcp",
+      "toolExposure": {
+        "web_search": "direct",
+        "web_fetch": "direct"
+      }
+    },
+    "notify-service": {
+      "url": "https://msg.bitdeer-staging.ai/mcp/v1",
+      "headers": {
+        "Authorization": "Bearer ${BITDEER_NOTIFY_MCP_TOKEN}"
+      },
+      "enabled": false
+    },
+    "atlassian": {
+      "url": "https://mcp.atlassian.com/v1/mcp/authv2"
+    }
+  }
+}

@@ -19,7 +19,7 @@ agent-config/
 ├── pi/                        # pi-specific artifacts
 │   ├── *.ts                   # single-file extensions (root of pi/)
 │   ├── *.mjs                  # tests alongside their extension
-│   ├── config/                # pi settings.json + models.json — symlinked into ~/.pi/agent/
+│   ├── config/                # pi settings.json, models.json, mcp.json — symlinked into ~/.pi/agent/
 │   └── agents/                # subagent templates
 ├── opencode/                  # opencode-specific artifacts
 │   └── agents/
@@ -140,7 +140,9 @@ Reinstall sources:
 
 ## Config (pi)
 
-`pi/config/settings.json` and `pi/config/models.json` are symlinked into `~/.pi/agent/`, so edits (and pi's own writes) land in this repo directly. pi rewrites `settings.json` at runtime — `lastChangelogVersion` on every upgrade, plus `/theme` and model-toggle changes — so expect a small dirty diff after upgrades; commit it. `models.json` is hand-edited only.
+`pi/config/settings.json`, `pi/config/models.json`, and `pi/config/mcp.json` are symlinked into `~/.pi/agent/` (mcp.json via `~/.config/mcp/mcp.json`), so edits (and pi's own writes) land in this repo directly. pi rewrites `settings.json` at runtime — `lastChangelogVersion` on every upgrade, plus `/theme` and model-toggle changes — so expect a small dirty diff after upgrades; commit it. `models.json` and `mcp.json` are hand-edited only.
+
+`mcp.json` is secret-free: the `notify-service` bearer token is interpolated as `${BITDEER_NOTIFY_MCP_TOKEN}` (pi supports env expansion in `headers`); the value lives in `~/.config/fish/config.fish`.
 
 Deliberately not versioned: `pi-permissions.jsonc`, `ship-reviewers.json`, and `trust.json` (pi-local; machine/team-specific or auto-regenerated), and `auth.json` / `mcp-auth.json` (credentials — never commit). The `go-deps-update` skill is also pi-local.
 
@@ -189,6 +191,12 @@ ln -sf "$PWD/scripts/bench-models.mjs" ~/.pi/agent/bin/bench-models.mjs
 # Pi config → ~/.pi/agent/
 ln -sf "$PWD/pi/config/settings.json" ~/.pi/agent/settings.json
 ln -sf "$PWD/pi/config/models.json" ~/.pi/agent/models.json
+
+# MCP config → ~/.config/mcp/ (pi's ~/.pi/agent/mcp.json symlinks here)
+ln -sf "$PWD/pi/config/mcp.json" ~/.config/mcp/mcp.json
+# notify-service's bearer token is interpolated from the environment
+# (BITDEER_NOTIFY_MCP_TOKEN in ~/.config/fish/config.fish) — set it before
+# enabling that server.
 
 # Global rules → ~/.pi/agent/AGENTS.md, ~/.config/opencode/AGENTS.md, ~/.claude/CLAUDE.md
 ln -sf "$PWD/global/AGENTS.md" ~/.pi/agent/AGENTS.md

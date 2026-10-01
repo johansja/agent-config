@@ -6,7 +6,7 @@ This repo is the source-of-truth for pi, opencode, and Claude Code agent artifac
 
 ## Repository Structure
 
-- **`pi/`** — pi-specific artifacts. Single-file TypeScript extensions at this dir's root (e.g., `pi/ai-permission-gate.ts`); test files alongside (e.g., `pi/ai-permission-gate.test.mjs`); `agents/` for subagent templates; `config/` for `settings.json` and `models.json`. All symlinked into `~/.pi/agent/` locations per `README.md` installation.
+- **`pi/`** — pi-specific artifacts. Single-file TypeScript extensions at this dir's root (e.g., `pi/ai-permission-gate.ts`); test files alongside (e.g., `pi/ai-permission-gate.test.mjs`); `agents/` for subagent templates; `config/` for `settings.json`, `models.json`, and `mcp.json`. All symlinked into `~/.pi/agent/` locations per `README.md` installation.
 - **`opencode/`** — opencode-specific artifacts. Currently `opencode/agents/review.md` (cross-model review subagent), symlinked into `~/.config/opencode/agents/`.
 - **`claude/`** — Claude Code-specific artifacts. Currently `claude/agents/review.md`, symlinked into `~/.claude/agents/`. Only subagents without a Claude Code built-in equivalent are mirrored here: `general`/`plan`/`scout` are covered by the built-in `general-purpose`/`Plan`/`Explore`, so only `review` is shipped. The body is identical to the pi/opencode copies; the frontmatter uses Claude Code's schema (PascalCase `tools:`, `model: inherit`).
 - **`skills/`** — shared model-invoked skills (Agent Skills standard). Each lives under `skills/<name>/SKILL.md` and is symlinked into `~/.agents/skills/` (pi + opencode) and `~/.claude/skills/` (Claude Code).

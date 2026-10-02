@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.99.2",
+  "lastChangelogVersion": "1.0.0",
   "packages": [
     "npm:@johansja/pi-permission-gate"
   ],
@@ -32,7 +32,7 @@
   },
   "hideThinkingBlock": true,
   "treeFilterMode": "default",
-  "tuiMode": "fullscreen",
+  "tuiMode": "regular",
   "fullscreenScrollbar": "auto",
   "autocompleteMaxVisible": 10,
   "quietStartup": false,

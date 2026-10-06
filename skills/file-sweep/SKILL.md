@@ -23,10 +23,17 @@ Bucket map (relative to PARA_ROOT):
 - `03 Resources` — timeless reference: `Books`, `IDs & Certs`, `Interviews`, `Praise & Worship`, `Software Engineering`, `User Manuals`
 - `04 Archives` — `Completed Projects`, `Inactive Areas` (dated subfolders only for one-off events)
 
-Classification rules:
+Classification rules (PARA decision order — actionability, not category):
 
-- Certificates, IDs, passports, marriage/birth certs → `03 Resources/IDs & Certs`
-- Bills, statements, bank, insurance, tax, pension paperwork (incl. Malaysian JPA/KWAP) → `02 Areas/Financial`
+1. **ACTIVE PROCESS? → `01 Projects/<process folder>`, kept whole.** Any file needed together for an in-flight process (pension transfer application, visa application, insurance claim, loan closing, school enrollment) goes into the project folder REGARDLESS of document type — certs, forms, statements stay with their working set. PARA's test: "when you sit down to work on it, all related material is in one place, ready to go." Do NOT disassemble a working set into type buckets.
+2. **Settled reference? → type rules below.** Type-filing applies only to documents with NO active process attached — things filed for occasional lookup, not imminent action.
+3. **Project completion → the WHOLE project folder moves to `04 Archives`** intact. Never re-disperse a completed project's files back into type buckets — the assembled set is the historical record.
+4. **In doubt between two buckets → the more actionable one.** A file used monthly in an Area outranks its type in Resources.
+
+Type rules (apply only to files ruled out as settled reference by 1–2):
+
+- Certificates, IDs, passports, marriage/birth certs → `03 Resources/IDs & Certs` (settled reference only — rule 1 overrides for in-flight sets)
+- Bills, statements, bank, insurance, tax, pension paperwork (incl. Malaysian JPA/KWAP) → `02 Areas/Financial` (settled reference only — in-flight application sets stay whole in Projects per rule 1)
 - School letters, portfolios, consent forms, medical reports → `02 Areas/Kids/<child>` (match by name: Esther, Ezra)
 - Installers/archives (`.dmg`, `.pkg`, `.zip`, `.iso`) older than 30 days → TRASH candidate
 - Screenshots/images older than 90 days → dated archive folder, or ASK
@@ -49,14 +56,15 @@ Naming and safety:
 6. **Execute on approval.** Move files (rename-before-filing applied); append every action to the undo log; trash TRASH items only if approved. Done when: undo log line count matches moves.
 7. **Verify.** Re-scan targets: zero unexplained strays; log balanced. Report: N filed, M trashed, K asked. Done when: report delivered and log saved.
 
-## First-run backlog (example: PARA_ROOT = iCloud Documents, Mini)
+## Case study — Pencen (the mistake that wrote these rules, Oct 2026)
 
-One-time decisions to propose on the first sweep:
+The first sweep classified by document type: marriage cert + bank account → `IDs & Certs`, JPA forms → `Financial`, and proposed retiring `01 Projects/Pencen`. **Wrong.** Johan corrected it: all files belong together in `01 Projects/Pencen` — he is actively processing his late father's pension transfer application and needs the working set intact every time he sits down to it.
 
-- `01 Projects/Pencen` holds static reference docs, not project work — propose: certs → `03 Resources/IDs & Certs`, bank/pension docs → `02 Areas/Financial`, then retire the folder (or keep as `02 Areas/Financial/Pencen`)
-- Root app folders (`Cline`, `MuseScore4`, `Zoom`) → propose a home (e.g. `03 Resources/Software Engineering/Tools/`) or whitelist them from future sweeps
-- `PDF.js viewer.pdf` at the iCloud root → identify, file or trash
-- `02 Areas/Kids`: rename the two `PDF document.pdf` files by content, then file into `Kids/Esther` or `Kids/Ezra`
+What this case teaches:
+- "Marriage cert" is not inherently a Resource — a cert **inside an in-flight application** is Project material
+- The test is not "what kind of file is this?" but "when Johan next works on this, does he need it together with the others?"
+- `01 Projects/Pencen` stays whole until the application completes; then the folder archives to `04 Archives` intact
+- Family cert vault (`03 Resources/IDs & Certs`) holds settled reference: `Sunny Sim Jian Ho - MyKad.pdf` stays there unless Johan says it's part of the application set
 
 ## Notes for agents
 

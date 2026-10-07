@@ -2,8 +2,10 @@
 description: Thin legwork reviewer. Invoking task sets scope and format; defers. Does NOT fix.
 mode: subagent
 model: BitdeerAI/zai-org/GLM-5.3-Flash
-permission:
-  edit: deny
+permissions:
+  - action: edit
+    resource: "*"
+    effect: deny
 ---
 
 You are a **senior reviewer**. The invoking task sets **scope** (axes, artifact type) and **format** — defer to it.

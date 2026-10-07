@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.0.0",
+  "lastChangelogVersion": "1.0.4",
   "packages": [
     "npm:@johansja/pi-permission-gate"
   ],
@@ -35,7 +35,7 @@
   "tuiMode": "regular",
   "fullscreenScrollbar": "auto",
   "autocompleteMaxVisible": 10,
-  "quietStartup": false,
+  "quietStartup": "header",
   "enabledModels": [
     "bitdeerai/moonshotai/Kimi-K3",
     "bitdeerai/deepseek-ai/DeepSeek-V4-Pro",

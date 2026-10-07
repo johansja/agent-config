@@ -9,7 +9,7 @@ Shared procedure for multiple agents (OpenClaw, Pi). One brain, two bodies: each
 
 ## Inputs (declare before scanning)
 
-- `PARA_ROOT`: absolute path of the PARA tree (macOS default: `~/Library/Mobile Documents/com~apple~CloudDocs/Documents`)
+- `PARA_ROOT`: absolute path of the PARA tree. On macOS, iCloud Desktop & Documents sync has two layouts: classic (`~/Documents` symlinked into `~/Library/Mobile Documents/com~apple~CloudDocs/Documents`) and file-provider (macOS 15+; `~/Documents` is a real iCloud-managed folder whose files can be dataless/evicted until opened — check with `defaults read com.apple.finder FXICloudDriveDocuments`; materialize with `brctl download` before reading or moving). Both are iCloud-backed; declare whichever exists.
 - `SWEEP_TARGETS`: additional locations to scan (typical: Downloads, Desktop; plus PARA_ROOT root-level strays)
 - `AUTONOMY`: `propose-all` (default — every action needs approval) or `auto-obvious` (auto-file unambiguous items, still ask on anything else)
 
@@ -37,12 +37,14 @@ Type rules (apply only to files ruled out as settled reference by 1–2):
 - School letters, portfolios, consent forms, medical reports → `02 Areas/Kids/<child>` (match by name: Esther, Ezra)
 - Installers/archives (`.dmg`, `.pkg`, `.zip`, `.iso`) older than 30 days → TRASH candidate
 - Screenshots/images older than 90 days → dated archive folder, or ASK
+- Candidate resumes/CVs → the hiring repo's `candidates/<date>_<slug>/sources/` (e.g. `~/projects/k8s-interviews`), deduped against existing files first; `03 Resources/Interviews` is for interview-prep reference material only
+- Re-downloadable or stale one-offs (public installers, versioned scripts, duplicate downloads, completed-travel and expired one-time-use docs) → propose DROP with reasoning
 - Everything unresolved → ASK pile (never guess on ambiguity)
 
 Naming and safety:
 
 - Junk names (`PDF document.pdf`, `Screenshot …`, `image …`) are renamed from content (read the first page) *before* filing; never move a file you have not identified
-- Move, never delete: deletion is proposal-only, and only for the explicit TRASH rules above; execute after approval
+- Move, never delete: deletion is proposal-only — for the explicit TRASH rules above and any DROP proposal; execute after approval
 - Undo log: one line per action (timestamp, from → to) in `PARA_ROOT/00 Inbox/.sweep-log.md`
 - One file, one decision: if classification needs a judgment call, it goes to the ASK pile
 
@@ -67,6 +69,8 @@ What this case teaches:
 - Family cert vault (`03 Resources/IDs & Certs`) holds settled reference: `Sunny Sim Jian Ho - MyKad.pdf` stays there unless Johan says it's part of the application set
 
 ## Notes for agents
+
+- On file-provider Macs, directory listings can show entries that fail `open`/`mv` with phantom ENOENT (encoding mismatch or dataless limbo). Retry file operations with globs (`mv ~/Downloads/Screenshot*09-01*.png …`) and materialize first (`brctl download <path>`); do not conclude a file is missing from one failed literal-path call
 
 - This skill is repo-synced (`github.com/johansja/agent-config`); keep edits in the repo's normal review flow
 - Nothing here schedules itself: the calling agent owns cadence, triggers, and the approval channel

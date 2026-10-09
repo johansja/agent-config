@@ -19,7 +19,7 @@ agent-config/
 ├── pi/                        # pi-specific artifacts
 │   ├── *.ts                   # single-file extensions (root of pi/)
 │   ├── *.mjs                  # tests alongside their extension
-│   ├── config/                # pi settings.json, models.json, mcp.json — symlinked into ~/.pi/agent/
+│   ├── config/                # pi config: models.json + mcp.json symlinked; settings.json copy-deployed (ADR 0002)
 │   └── agents/                # subagent templates
 ├── opencode/                  # opencode-specific artifacts
 │   └── agents/
@@ -140,7 +140,7 @@ Reinstall sources:
 
 ## Config (pi)
 
-`pi/config/settings.json`, `pi/config/models.json`, and `pi/config/mcp.json` are symlinked into `~/.pi/agent/` (mcp.json via `~/.config/mcp/mcp.json`), so edits (and pi's own writes) land in this repo directly. pi rewrites `settings.json` at runtime — `lastChangelogVersion` on every upgrade, plus `/theme` and model-toggle changes — so expect a small dirty diff after upgrades; commit it. `models.json` and `mcp.json` are hand-edited only.
+`pi/config/models.json` and `pi/config/mcp.json` are symlinked into `~/.pi/agent/` (mcp.json via `~/.config/mcp/mcp.json`) — both are hand-edited only. `pi/config/settings.json` is **copy-deployed**, never symlinked: pi writes runtime state into it (`lastChangelogVersion` on every upgrade, `/theme` and model-toggle changes), and with the repo on several machines that state would masquerade as shared config — see [ADR 0002](docs/adr/0002-settings-machine-local-deployment.md). Editing shared defaults = edit the tracked file, re-copy, `/reload`.
 
 `mcp.json` is secret-free: the `notify-service` bearer token is interpolated as `${BITDEER_NOTIFY_MCP_TOKEN}` (pi supports env expansion in `headers`); the value lives in `~/.config/fish/config.fish`.
 
@@ -189,7 +189,9 @@ mkdir -p ~/.pi/agent/bin
 ln -sf "$PWD/scripts/bench-models.mjs" ~/.pi/agent/bin/bench-models.mjs
 
 # Pi config → ~/.pi/agent/
-ln -sf "$PWD/pi/config/settings.json" ~/.pi/agent/settings.json
+# settings.json is copy-deployed, machine-local (ADR 0002) — never symlink it.
+# pi writes runtime state into the deployed copy; re-copy on shared-default changes.
+cp "$PWD/pi/config/settings.json" ~/.pi/agent/settings.json
 ln -sf "$PWD/pi/config/models.json" ~/.pi/agent/models.json
 
 # MCP config → ~/.config/mcp/ (pi's ~/.pi/agent/mcp.json symlinks here)

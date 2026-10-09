@@ -1,6 +1,6 @@
 ---
-description: "Launch a unit of work in Herdr — worktree + agent kickoff; ticket claim happens in-session after a readiness check. Routes Jira tickets, GitLab MRs, and markdown files."
-argument-hint: "<jira ticket (URL or AIC-NNNN) | gitlab MR url | markdown file> [--kind pi|opencode|claude]"
+description: "Launch a unit of work in Herdr — worktree + agent kickoff; ticket claim happens in-session after a readiness check. Routes Jira tickets, GitLab MRs, markdown files, and ad-hoc tasks."
+argument-hint: "<jira ticket (URL or AIC-NNNN) | gitlab MR url | markdown file | ad-hoc task> [--kind pi|opencode|claude]"
 ---
 
 Target: **$ARGUMENTS**
@@ -11,10 +11,11 @@ Base repo: git root of the current directory. Worktrees live at `~/.herdr/worktr
 
 ## Route
 
-- `AIC-\d+` or a `bitdeer.atlassian.net/browse/<KEY>` URL → **Ticket flow**.
+- A bare `AIC-\d+` key or a `bitdeer.atlassian.net/browse/<KEY>` URL → **Ticket flow**.
 - A GitLab `merge_requests` URL → **MR flow**.
 - A path ending in `.md` → **Markdown flow**.
-- Neither → stop; report what $ARGUMENTS looked like.
+- Any other non-empty text → **Ad-hoc flow**.
+- Empty → stop; report what $ARGUMENTS looked like.
 - Optional `--kind <k>` sets the spawned agent kind (default `pi`).
 
 ## Ticket flow
@@ -79,6 +80,29 @@ The file is a read-only spec — neither `/work` nor the spawned session writes 
    fate stays with the user. When implementation lands — run the simplify
    pass, /fix-hard-violations, then /ship. On review comments: /mr-comments.
    On approval: /merge.
+   ```
+
+## Ad-hoc flow
+
+The description is the spec — there is no artifact: nothing is read, written, or claimed. A ticket key inside the description is context, not a claim target.
+
+1. Slug = first few kebab-case words of the description, lowercase.
+2. Create the herdr worktree, branch `adhoc-<slug>` lowercase, on an up-to-date default branch. If the branch/worktree already exists, reuse it and say so.
+3. Workspace `adhoc-<short-slug>`; start the agent in its root pane, cwd = the new worktree.
+4. Kickoff via `herdr agent prompt` — do not wait for completion. Report the workspace ID. Prompt text:
+
+   ```
+   /grill-with-docs work on: <description>
+
+   First assess readiness: is this task actionable as written — not blocked,
+   not moot (the mootness check, `grilling` skill), no prerequisite outside
+   it? If not ready: reply starting with `NOT-READY:` plus what is missing
+   or blocking, and stop.
+
+   Lifecycle: an existence grilling verdict stops or trims the work before
+   implementation — report it and stop. When implementation lands — run the
+   simplify pass, /fix-hard-violations, then /ship. On review comments:
+   /mr-comments. On approval: /merge.
    ```
 
 ## Rules

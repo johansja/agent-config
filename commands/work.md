@@ -1,6 +1,6 @@
 ---
-description: "Launch a unit of work in Herdr — worktree + agent kickoff; ticket claim happens in-session after a readiness check. Routes Jira tickets and GitLab MRs."
-argument-hint: "<jira ticket (URL or AIC-NNNN) | gitlab MR url> [--kind pi|opencode|claude]"
+description: "Launch a unit of work in Herdr — worktree + agent kickoff; ticket claim happens in-session after a readiness check. Routes Jira tickets, GitLab MRs, and markdown files."
+argument-hint: "<jira ticket (URL or AIC-NNNN) | gitlab MR url | markdown file> [--kind pi|opencode|claude]"
 ---
 
 Target: **$ARGUMENTS**
@@ -13,6 +13,7 @@ Base repo: git root of the current directory. Worktrees live at `~/.herdr/worktr
 
 - `AIC-\d+` or a `bitdeer.atlassian.net/browse/<KEY>` URL → **Ticket flow**.
 - A GitLab `merge_requests` URL → **MR flow**.
+- A path ending in `.md` → **Markdown flow**.
 - Neither → stop; report what $ARGUMENTS looked like.
 - Optional `--kind <k>` sets the spawned agent kind (default `pi`).
 
@@ -50,7 +51,37 @@ Base repo: git root of the current directory. Worktrees live at `~/.herdr/worktr
 3. Workspace named `mr-<iid>-<short-slug>`; start the agent in its root pane, cwd = the worktree.
 4. Kickoff via `herdr agent prompt` with `/gitlab-review <mr-url>` — do not wait for completion. Report the workspace ID.
 
+## Markdown flow
+
+The file is a read-only spec — neither `/work` nor the spawned session writes to it. A Jira key inside the file routes claiming through the ticket mechanics.
+
+1. Verify the file exists (resolve against the current directory); missing → stop and report. Slug = basename minus `.md`, lowercase.
+2. `git status --porcelain -- <file>`: untracked → the kickoff passes the main-repo absolute path with the caveat `(untracked in the main checkout — read it there; never commit it)`; tracked → pass the path as-is.
+3. Create the herdr worktree, branch `md-<slug>` lowercase, on an up-to-date default branch. If the branch/worktree already exists, reuse it and say so.
+4. Workspace `md-<short-slug>`; start the agent in its root pane, cwd = the new worktree.
+5. Kickoff via `herdr agent prompt` — do not wait for completion. Report the workspace ID. Prompt text:
+
+   ```
+   /grill-with-docs work on <markdown file path>
+
+   First assess readiness: is this item actionable as written — not blocked,
+   not moot (the mootness check, `grilling` skill), no prerequisite outside
+   it? If a Jira ticket is referenced, claim it (assign to me, transition to
+   In Progress; skip steps already satisfied), then run the session. If not
+   ready: reply starting with `NOT-READY:` plus what is missing or blocking,
+   do not claim, and stop.
+
+   Lifecycle: an existence grilling verdict stops or trims the work before
+   implementation — report it and stop; if the file references a Jira ticket,
+   propose that ticket's verdict writes via the atlassian MCP (comment +
+   transition on kill/defer; title/description trim on descope), executed
+   only on the user's yes. The markdown file itself is never written — its
+   fate stays with the user. When implementation lands — run the simplify
+   pass, /fix-hard-violations, then /ship. On review comments: /mr-comments.
+   On approval: /merge.
+   ```
+
 ## Rules
 
-- One work item per invocation; never batch tickets.
+- One work item per invocation; never batch.
 - `/work` only sets the table: worktree, workspace, agent. Cleanup of finished workspaces/worktrees is a separate decision, never automatic.

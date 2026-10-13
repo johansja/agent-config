@@ -50,13 +50,36 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 // --- extension imports via jiti (same mechanism as the .test.mjs) ----------
-const PI_ROOT = process.env.PI_ROOT
-	|| path.join(execSync("npm root -g", { encoding: "utf8" }).trim(), "@earendil-works/pi-coding-agent");
-const { createJiti } = await import(path.join(PI_ROOT, "node_modules/jiti/lib/jiti.mjs"));
+// Managed install (~/.pi/agent/install/releases/<v>) first, npm global fallback;
+// PI_ROOT env overrides. Deps sit nested in PI_ROOT (npm global) or as siblings
+// of the scoped package (managed install) — same resolution as the .test.mjs files.
+function resolvePiRoot() {
+	if (process.env.PI_ROOT) return process.env.PI_ROOT;
+	try {
+		const v = fs.readFileSync(path.join(os.homedir(), ".pi/agent/install/current-version"), "utf8").trim();
+		if (v)
+			return path.join(
+				os.homedir(),
+				".pi/agent/install/releases",
+				v,
+				"node_modules/@earendil-works/pi-coding-agent",
+			);
+	} catch {}
+	return path.join(execSync("npm root -g", { encoding: "utf8" }).trim(), "@earendil-works/pi-coding-agent");
+}
+const PI_ROOT = resolvePiRoot();
+function resolveDep(...segments) {
+	for (const base of [PI_ROOT, path.join(PI_ROOT, "../..")]) {
+		const p = path.join(base, ...segments);
+		if (fs.existsSync(p)) return p;
+	}
+	throw new Error(`Not found under ${PI_ROOT} (or its sibling node_modules): ${segments.join("/")}`);
+}
+const { createJiti } = await import(resolveDep("jiti", "lib", "jiti.mjs"));
 const jiti = createJiti(import.meta.url, {
 	alias: {
 		"@earendil-works/pi-coding-agent": `${PI_ROOT}/dist/index.js`,
-		"@earendil-works/pi-ai": `${PI_ROOT}/node_modules/@earendil-works/pi-ai/dist/index.js`,
+		"@earendil-works/pi-ai": resolveDep("@earendil-works", "pi-ai", "dist", "index.js"),
 	},
 });
 const ext = await jiti.import(path.join(HERE, "auto-session-name.ts"));

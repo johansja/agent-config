@@ -35,7 +35,7 @@ agent-config/
 
 ### ai-permission-gate
 
-→ Moved to its own repo: [johansja/pi-permission-gate](https://github.com/johansja/pi-permission-gate). Install via `pi install git:github.com/johansja/pi-permission-gate`.
+→ Moved to its own repo: [johansja/pi-permission-gate](https://github.com/johansja/pi-permission-gate). Install via `pi install npm:@johansja/pi-permission-gate` — pi writes the declaration to `packages` in `~/.pi/agent/settings.json` (no extension file is symlinked).
 
 ### auto-session-name
 

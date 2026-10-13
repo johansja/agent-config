@@ -157,12 +157,15 @@ cd ~/projects/agent-config
 # Pi extensions → ~/.pi/agent/extensions/
 ln -sf "$PWD/pi/<ext>.ts" ~/.pi/agent/extensions/<ext>.ts
 
-# Pi subagent extension — symlinked straight to pi's upstream example
+# Pi subagent extension + questionnaire — symlinked straight to pi's upstream examples
 # (no local copy; tracks the installed pi package automatically)
-PI_EXAMPLES="$(npm root -g)/@earendil-works/pi-coding-agent/examples/extensions/subagent"
+# Managed installs embed the version in the release dir — re-run after each pi update.
+PI_INSTALL="$HOME/.pi/agent/install/releases/$(cat ~/.pi/agent/install/current-version)/node_modules/@earendil-works/pi-coding-agent"
+PI_EXAMPLES="$PI_INSTALL/examples/extensions/subagent"
 mkdir -p ~/.pi/agent/extensions/subagent
 ln -sf "$PI_EXAMPLES/agents.ts" ~/.pi/agent/extensions/subagent/agents.ts
 ln -sf "$PI_EXAMPLES/index.ts" ~/.pi/agent/extensions/subagent/index.ts
+ln -sf "$PI_INSTALL/examples/extensions/questionnaire.ts" ~/.pi/agent/extensions/questionnaire.ts
 
 # Pi subagent templates → ~/.pi/agent/agents/
 ln -sf "$PWD/pi/agents/<name>.md" ~/.pi/agent/agents/<name>.md

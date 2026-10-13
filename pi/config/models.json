@@ -30,6 +30,7 @@
 // ≈90K at ~150 tok/s (DS-V4.1-Flash). Raise the gateway timeout before raising any
 // maxTokens.
 {
+  "$schema": "https://pi.dev/schemas/models.schema.json",
   "providers": {
     "bitdeerai": {
       "baseUrl": "https://api-inference.bitdeer.ai/v1",

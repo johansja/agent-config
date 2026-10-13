@@ -43,7 +43,7 @@ Automatically generates a short, human-readable name for each new session after 
 
 **Behavior:**
 
-- Fires once per session on the first `agent_settled` (after the initial exchange — including tool calls, retries, and auto-compaction — fully completes).
+- Fires once per session on the first `agent_settled` (after the initial exchange — including tool calls, retries, and auto-compaction — fully completes). A run aborted before settling (pi ≥ 1.1 flags it) doesn't count: naming defers to the next completed exchange.
 - Only names brand-new sessions (branch has 0 prior user messages at `session_start`). Resumed (`pi -c`, `/resume`) and forked sessions are left alone.
 - Skips if a name is already set (`/name`, `--name`, or another extension).
 - Skips ephemeral sessions (`--no-session`).
@@ -137,6 +137,8 @@ Reinstall sources:
 | herdr | Herdr toolchain |
 | search-company-knowledge | Atlassian MCP |
 | powerpoint | custom (possibly skills.sh) |
+| infra | `~/projects/infra-skill` (Bitdeer AI Cloud reference) |
+| shadcn | shadcn/ui toolchain (possibly skills.sh) |
 
 ## Config (pi)
 
@@ -211,7 +213,7 @@ ln -sf "$PWD/global/AGENTS.md" ~/.claude/CLAUDE.md
 
 Symlinks ensure edits land immediately in all deployed agents without copying.
 
-Verified working against pi 1.0.4 · opencode 2.0.20 · Claude Code 2.1.285 (2026-10-07) — bump on each sync audit.
+Verified working against pi 1.2.0 · opencode 2.0.25 · Claude Code 2.1.287 (2026-10-13) — bump on each sync audit.
 
 ## References
 

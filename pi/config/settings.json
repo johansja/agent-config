@@ -35,7 +35,7 @@
   "tuiMode": "regular",
   "fullscreenScrollbar": "auto",
   "autocompleteMaxVisible": 10,
-  "quietStartup": "header",
+  "quietStartup": false,
   "enabledModels": [
     "bitdeerai/moonshotai/Kimi-K3",
     "bitdeerai/deepseek-ai/DeepSeek-V4-Pro",

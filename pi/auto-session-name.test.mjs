@@ -558,3 +558,22 @@ describe("RENAME_SYSTEM_PROMPT", () => {
 		assert.doesNotMatch(RENAME_SYSTEM_PROMPT, /skill block/);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// agent_settled aborted-deferral (pi >= 1.1 drift guard)
+// ---------------------------------------------------------------------------
+
+describe("agent_settled handler wiring", () => {
+	const source = fs.readFileSync(
+		path.join(path.dirname(new URL(import.meta.url).pathname), "auto-session-name.ts"),
+		"utf8",
+	);
+
+	it("receives the event (not _event) in the agent_settled handler", () => {
+		assert.match(source, /pi\.on\("agent_settled", async \(event, ctx: ExtensionContext\)/);
+	});
+
+	it("defers naming on aborted runs instead of counting the attempt", () => {
+		assert.match(source, /if \(event\.aborted\) \{[\s\S]*?deferring naming[\s\S]*?\}[\s\S]*?namingAttempted = true;/);
+	});
+});

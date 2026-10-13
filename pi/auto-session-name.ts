@@ -9,7 +9,9 @@
  * Behavior:
  *   - Fires once per session, on the first `agent_settled` event (i.e. after
  *     the initial exchange — including tool calls, retries, and any auto-
- *     compaction — has fully completed).
+ *     compaction — has fully completed). A run aborted before settling
+ *     (pi >= 1.1 marks it `aborted`) does not count: naming defers to the
+ *     next completed exchange rather than titling a partial branch.
  *   - The naming input is the first turn's full text (user + assistant,
  *     truncated to 4000 chars), including any injected skill/command
  *     scaffolding; the system prompt is tuned to title the real request, not
@@ -600,8 +602,16 @@ export default function (pi: ExtensionAPI) {
 		}
 	});
 
-	pi.on("agent_settled", async (_event, ctx: ExtensionContext) => {
+	pi.on("agent_settled", async (event, ctx: ExtensionContext) => {
 		if (namingAttempted) return;
+		// pi >= 1.1 flags aborted runs: the first exchange didn't complete, so
+		// don't count the attempt — defer naming to the next settled run instead
+		// of titling a partial branch. (Older pi omits `aborted`; undefined is
+		// falsy and reads as not aborted.)
+		if (event.aborted) {
+			debugLog("run aborted before settle, deferring naming");
+			return;
+		}
 		// One-shot: never retry even on LLM failure, to avoid spamming.
 		namingAttempted = true;
 

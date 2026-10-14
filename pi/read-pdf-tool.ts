@@ -37,9 +37,9 @@ export function extractorArgs(extractor: "pdftotext" | "gs", file: string, { fir
 	return ["-sDEVICE=txtwrite", "-dNOPAUSE", "-dBATCH", "-dQUIET", ...range, "-sOutputFile=-", file];
 }
 
-/** pdftotext separates pages with form feeds. */
+/** pdftotext emits one \f per page, including a trailing \f after the last page. */
 export function pageCountFromFormFeeds(text: string): number {
-	return (text.match(/\f/g) ?? []).length + 1;
+	return Math.max(1, (text.match(/\f/g) ?? []).length);
 }
 
 export function isLikelyScanned(text: string, pages: number): boolean {

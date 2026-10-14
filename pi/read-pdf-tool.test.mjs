@@ -84,9 +84,12 @@ describe("extractorArgs", () => {
 // pageCountFromFormFeeds / isLikelyScanned / truncate
 
 describe("pageCountFromFormFeeds", () => {
-	it("counts form-feed separators", () => {
+	// pdftotext emits one \f per page, trailing after the last — e.g. a 1-page
+	// PDF yields "text\n\f" and a 2-page PDF "p1\fp2\f" (verified against poppler 26.10).
+	it("counts form feeds, flooring at 1", () => {
 		assert.equal(pageCountFromFormFeeds("abc"), 1);
-		assert.equal(pageCountFromFormFeeds("a\fb\fc"), 3);
+		assert.equal(pageCountFromFormFeeds("a\fb\f"), 2);
+		assert.equal(pageCountFromFormFeeds("a\fb\fc\f"), 3);
 	});
 });
 
@@ -113,20 +116,24 @@ describe("truncate", () => {
 // ---------------------------------------------------------------------------
 // Integration: real chain against a fixture PDF
 
-const makePdf = (text) => `%PDF-1.4
+const makePdf = (text) => {
+	// ASCII-only text: the stream is Type1 Helvetica (single-byte), and a
+	// multi-byte char would make /Length (computed from string length) wrong.
+	const stream = `BT /F1 12 Tf 100 700 Td (${text}) Tj ET\n`;
+	return `%PDF-1.4
 1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Resources<</Font<</F1 4 0 R>>>>/Contents 5 0 R>>endobj
 4 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
-5 0 obj<</Length ${text.length + 27}>>stream
-BT /F1 12 Tf 100 700 Td (${text}) Tj ET
-endstream
+5 0 obj<</Length ${stream.length}>>stream
+${stream}endstream
 endobj
 trailer<</Root 1 0 R>>
 %%EOF
 `;
+};
 
-const LONG_TEXT = "hello pdf world — this fixture page carries more than one hundred characters of real text so the scanned-detection heuristic lets it through.";
+const LONG_TEXT = "hello pdf world - this fixture page carries more than one hundred characters of real text so the scanned-detection heuristic lets it through.";
 
 const hasCli = (bin) => {
 	try {

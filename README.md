@@ -126,6 +126,9 @@ Commands are how this repo encodes a **workflow**: a recurring cross-session int
 Skills in `skills/` are repo-owned; `codebase-design` is a modified fork of
 [mattpocock/skills](https://github.com/mattpocock/skills). `~/.agents/skills/`
 additionally holds vendored third-party skill directories not versioned here.
+Claude Code reads only `~/.claude/skills/` (no native `~/.agents/skills/`
+support — [anthropics/claude-code#66352](https://github.com/anthropics/claude-code/issues/66352)),
+so every skill — repo-owned and vendored — also needs a symlink there.
 Reinstall sources:
 
 | Skill | Source |
@@ -183,6 +186,10 @@ ln -sf "$PWD/claude/agents/<name>.md" ~/.claude/agents/<name>.md
 # Skills → ~/.agents/skills/ (pi + opencode) and ~/.claude/skills/ (Claude Code)
 ln -sf "$PWD/skills/<name>" ~/.agents/skills/<name>
 ln -sf "$PWD/skills/<name>" ~/.claude/skills/<name>
+
+# Vendored skills (installed into ~/.agents/skills/ by their toolchains — see
+# table above) also need a ~/.claude/skills/ symlink or Claude Code can't see them:
+ln -sf "../../.agents/skills/<name>" ~/.claude/skills/<name>
 
 # Commands → ~/.pi/agent/prompts/, ~/.config/opencode/commands/, ~/.claude/commands/
 ln -sf "$PWD/commands/<name>.md" ~/.pi/agent/prompts/<name>.md

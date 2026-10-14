@@ -45,7 +45,7 @@
  *   the permissionGate pattern):
  *     {
  *       "autoSessionName": {
- *         "model": "bitdeerai/deepseek-ai/DeepSeek-V4.1-Flash",
+ *         "model": "bitdeerai/zai-org/GLM-5.3-Flash",
  *         "maxChars": 80,
  *         "disabled": false
  *       }
@@ -57,7 +57,7 @@
  *
  *   Environment variables (override settings.json):
  *   PI_AUTO_SESSION_NAME_MODEL     - Model for naming. Accepts "provider/modelId"
- *                                    (e.g. "bitdeerai/deepseek-ai/DeepSeek-V4.1-Flash")
+ *                                    (e.g. "bitdeerai/zai-org/GLM-5.3-Flash")
  *                                    or a bare model id matched across providers.
  *                                    Default: the session's current model (ctx.model).
  *   PI_AUTO_SESSION_NAME_DISABLED  - "1"/"true"/"yes" disables the extension.

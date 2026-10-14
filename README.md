@@ -63,7 +63,7 @@ Set the naming model in `~/.pi/agent/settings.json` (same file as `permissionGat
 ```json
 {
   "autoSessionName": {
-    "model": "bitdeerai/deepseek-ai/DeepSeek-V4.1-Flash"
+    "model": "bitdeerai/zai-org/GLM-5.3-Flash"
   }
 }
 ```

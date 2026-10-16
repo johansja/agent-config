@@ -7,7 +7,7 @@
   "defaultProvider": "bitdeerai",
   "defaultModel": "zai-org/GLM-5.3-Flash",
   "permissionGate": {
-    "model": "bitdeerai/zai-org/GLM-5.3-Flash",
+    "model": "bitdeerai/deepseek-ai/DeepSeek-V4.1-Flash",
     "reasoningEffort": "high",
     "blockLevel": "medium",
     "maxTokens": 32000

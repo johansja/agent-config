@@ -15,7 +15,7 @@ agent-config/
 ├── skills/                    # shared model-invoked skills — symlinked by ALL agents
 │   └── <name>/SKILL.md        # each skill lives in its own subdir
 ├── commands/                  # shared slash-command templates — symlinked by ALL agents
-├── scripts/                   # helper harnesses — bench-coding.mjs (default model bench), bench-models.mjs; symlinked into ~/.pi/agent/bin/
+├── scripts/                   # helper harnesses — bench-coding.mjs (default bench), bench-models.mjs, probe-cache.mjs; symlinked into ~/.pi/agent/bin/
 ├── pi/                        # pi-specific artifacts
 │   ├── *.ts                   # single-file extensions (root of pi/)
 │   ├── *.mjs                  # tests alongside their extension
@@ -153,7 +153,7 @@ Deliberately not versioned: `pi-permissions.jsonc`, `ship-reviewers.json`, and `
 
 ## Scripts (helpers)
 
-`scripts/` holds versioned harnesses, symlinked into `~/.pi/agent/bin/`. **`bench-coding.mjs` is the default bench for model decisions.** It samples coding-shaped traffic: ~150k-token real-code context, first-call vs cached TTFT, and tool-call pass rate across read/grep/write tasks, with models interleaved per iteration to damp pool weather. `bench-models.mjs` remains the quick raw-serving check (short text prompt, no tools, no context) and is not sufficient on its own: it cannot see long-context prefill or cache-miss latency, which dominate real agent turns.
+`scripts/` holds versioned harnesses, symlinked into `~/.pi/agent/bin/`. **`bench-coding.mjs` is the default bench for model decisions.** It samples coding-shaped traffic: ~150k-token real-code context, first-call vs cached TTFT, and tool-call pass rate across read/grep/write tasks, with models interleaved per iteration to damp pool weather. `bench-models.mjs` remains the quick raw-serving check (short text prompt, no tools, no context) and is not sufficient on its own: it cannot see long-context prefill or cache-miss latency, which dominate real agent turns. `probe-cache.mjs` diagnoses prompt-cache behavior — per-replica caches mean concurrent bursts pay cold prefill on unwarmed replicas — run it when latency looks anomalous or after gateway changes.
 
 ## Installation
 
@@ -204,6 +204,7 @@ ln -sf "$PWD/commands/<name>.md" ~/.claude/commands/<name>.md
 mkdir -p ~/.pi/agent/bin
 ln -sf "$PWD/scripts/bench-coding.mjs" ~/.pi/agent/bin/bench-coding.mjs   # default model bench
 ln -sf "$PWD/scripts/bench-models.mjs" ~/.pi/agent/bin/bench-models.mjs   # quick raw-serving check
+ln -sf "$PWD/scripts/probe-cache.mjs" ~/.pi/agent/bin/probe-cache.mjs   # prompt-cache probe
 
 # Pi config → ~/.pi/agent/
 # settings.json is copy-deployed, machine-local (ADR 0002) — never symlink it.

@@ -15,7 +15,7 @@ agent-config/
 ├── skills/                    # shared model-invoked skills — symlinked by ALL agents
 │   └── <name>/SKILL.md        # each skill lives in its own subdir
 ├── commands/                  # shared slash-command templates — symlinked by ALL agents
-├── scripts/                   # versioned helper harnesses — symlinked into ~/.pi/agent/bin/
+├── scripts/                   # helper harnesses — bench-coding.mjs (default model bench), bench-models.mjs; symlinked into ~/.pi/agent/bin/
 ├── pi/                        # pi-specific artifacts
 │   ├── *.ts                   # single-file extensions (root of pi/)
 │   ├── *.mjs                  # tests alongside their extension
@@ -151,6 +151,10 @@ Reinstall sources:
 
 Deliberately not versioned: `pi-permissions.jsonc`, `ship-reviewers.json`, and `trust.json` (pi-local; machine/team-specific or auto-regenerated), and `auth.json` / `mcp-auth.json` (credentials — never commit). The `go-deps-update` skill is also pi-local.
 
+## Scripts (helpers)
+
+`scripts/` holds versioned harnesses, symlinked into `~/.pi/agent/bin/`. **`bench-coding.mjs` is the default bench for model decisions.** It samples coding-shaped traffic: ~150k-token real-code context, first-call vs cached TTFT, and tool-call pass rate across read/grep/write tasks, with models interleaved per iteration to damp pool weather. `bench-models.mjs` remains the quick raw-serving check (short text prompt, no tools, no context) and is not sufficient on its own: it cannot see long-context prefill or cache-miss latency, which dominate real agent turns.
+
 ## Installation
 
 Clone, then symlink each artifact class to its deployment target:
@@ -198,7 +202,8 @@ ln -sf "$PWD/commands/<name>.md" ~/.claude/commands/<name>.md
 
 # Scripts → ~/.pi/agent/bin/
 mkdir -p ~/.pi/agent/bin
-ln -sf "$PWD/scripts/bench-models.mjs" ~/.pi/agent/bin/bench-models.mjs
+ln -sf "$PWD/scripts/bench-coding.mjs" ~/.pi/agent/bin/bench-coding.mjs   # default model bench
+ln -sf "$PWD/scripts/bench-models.mjs" ~/.pi/agent/bin/bench-models.mjs   # quick raw-serving check
 
 # Pi config → ~/.pi/agent/
 # settings.json is copy-deployed, machine-local (ADR 0002) — never symlink it.

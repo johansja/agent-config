@@ -54,6 +54,17 @@ a pi/opencode/Claude Code project.
   grilling skill; also re-run at `/gitlab-review` (surfaced) and `/merge`
   (gating).
 
+### Deepen pass (deepen skill ↔ /work lifecycle)
+
+- **Deepen pass** — the `deepen` skill's procedure, run after a grill
+  verdict of **proceed** and before implementation: rewrite the settled
+  task deeper, not bigger — what a top professional would do that the task
+  doesn't ask, the rawest material they'd start from, the methods and tools
+  they'd use, and the outside judge that proves the result right. Raises
+  the level of execution, never the scope of the deliverable; what-to-build
+  changes go back through grilling. Bookends the `/work` lifecycle against
+  the deletion pass.
+
 ### Session naming actors
 
 Three independent actors set a pi session's display name. Independence is

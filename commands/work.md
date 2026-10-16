@@ -40,7 +40,9 @@ Base repo: git root of the current directory. Worktrees live at `~/.herdr/worktr
    implementation — kill/defer: propose a Jira comment + transition via the
    atlassian MCP (list the real transitions; Duplicate resolution when a twin
    exists); descope: propose trimming the ticket's title and description.
-   Execute these writes only on the user's yes. When implementation lands —
+   Execute these writes only on the user's yes. On proceed: run the deepen
+   pass (`deepen` skill) on the settled task before implementing. When
+   implementation lands —
    run the simplify pass, /fix-hard-violations, then /ship. On review
    comments: /mr-comments. On approval: /merge.
    ```
@@ -77,9 +79,10 @@ The file is a read-only spec — neither `/work` nor the spawned session writes 
    propose that ticket's verdict writes via the atlassian MCP (comment +
    transition on kill/defer; title/description trim on descope), executed
    only on the user's yes. The markdown file itself is never written — its
-   fate stays with the user. When implementation lands — run the simplify
-   pass, /fix-hard-violations, then /ship. On review comments: /mr-comments.
-   On approval: /merge.
+   fate stays with the user. On proceed: run the deepen pass (`deepen`
+   skill) on the settled task before implementing. When implementation
+   lands — run the simplify pass, /fix-hard-violations, then /ship. On
+   review comments: /mr-comments. On approval: /merge.
    ```
 
 ## Ad-hoc flow
@@ -100,8 +103,10 @@ The description is the spec — there is no artifact: nothing is read, written, 
    or blocking, and stop.
 
    Lifecycle: an existence grilling verdict stops or trims the work before
-   implementation — report it and stop. When implementation lands — run the
-   simplify pass, /fix-hard-violations, then /ship. On review comments:
+   implementation — report it and stop. On proceed: run the deepen pass
+   (`deepen` skill) on the settled task before implementing. When
+   implementation lands — run the simplify pass, /fix-hard-violations, then
+   /ship. On review comments:
    /mr-comments. On approval: /merge.
    ```
 

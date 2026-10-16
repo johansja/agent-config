@@ -48,6 +48,7 @@ External-behavior claims — library/API/tool/system behavior, defaults, signatu
 
 Don't claim a command, test, or extraction passed/failed without running it — read the output, then report.
 Don't claim a file landed without seeing it in the commit: `git add -A` silently skips gitignored paths — check the staged list against the intended deliverable set, or verify from a clean worktree.
+Quality claims need an outside judge: when no test, script, or benchmark exists to check one, build it before iterating instead of self-assessing.
 
 ### Proven Patterns Over Invention
 

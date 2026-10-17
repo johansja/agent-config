@@ -1,13 +1,35 @@
 ---
-description: "Launch a unit of work in Herdr — worktree + agent kickoff; ticket claim happens in-session after a readiness check. Routes Jira tickets, GitLab MRs, markdown files, and ad-hoc tasks."
+description: "Launch a unit of work in the active backend (T3 Code or Herdr) — worktree + agent kickoff; ticket claim happens in-session after a readiness check. Routes Jira tickets, GitLab MRs, markdown files, and ad-hoc tasks."
 argument-hint: "<jira ticket (URL or AIC-NNNN) | gitlab MR url | markdown file | ad-hoc task> [--kind pi|opencode|claude]"
 ---
 
 Target: **$ARGUMENTS**
 
-Orchestrates the enclosing Herdr session. Gate: stop unless `HERDR_ENV=1`. Load the `herdr` skill for CLI contracts; learn exact syntax from the installed binary (`herdr worktree`, `herdr workspace`, `herdr agent`) before mutating. Parse IDs from JSON responses. Create everything with `--no-focus`.
+Base repo: git root of the current directory.
 
-Base repo: git root of the current directory. Worktrees live at `~/.herdr/worktrees/<repo-name>/`.
+## Backend
+
+Exactly one backend executes the flow; detect it, don't ask:
+
+- `HERDR_ENV=1` → **Herdr**. Load the `herdr` skill and follow its CLI contracts; background creation uses `--no-focus`.
+- No `HERDR_ENV` and the t3-code MCP tools respond → **T3 Code**. Confirm with one `orchestrator_capabilities` call before the first launch; keep its provider list for `--kind`.
+- Neither → stop; report that no orchestration backend is available.
+
+Primitives used by the flows:
+
+- **Worktree(branch, base)** — branch `<branch>` on an up-to-date `<base>` (default: the repo's default branch). If the worktree/branch already exists, reuse it and say so; never recreate.
+  - Herdr: `herdr worktree`.
+  - T3: part of the Launch — `workspaceStrategy {type:"worktree", baseRef:"<base>", branch:"<branch>", startFromOrigin:true}` (startFromOrigin = fetched). Existing worktree → `{type:"existing_worktree", worktreePath, branch}` from `t3_worktree_list`.
+- **Session(name)** — a named session rooted at the worktree.
+  - Herdr: `herdr workspace <name>`; agent in its root pane, cwd = the worktree.
+  - T3: the launched thread is the session — `title` = `<name>`; the launch binds it to the worktree.
+- **Kickoff(prompt)** — fire-and-forget: never wait, never poll.
+  - Herdr: `herdr agent prompt`.
+  - T3: the `message` of the same single `t3_thread_launch` call — worktree, session, kickoff are one call; no `t3_thread_wait`.
+- **Report** — Herdr: the workspace ID. T3: `[<name>](t3-thread://v1/<threadId>)`; retain the threadId — no retry key, so if a launch is lost, check `t3_thread_list` before retrying.
+- **`--kind <k>`** — parsed from $ARGUMENTS, default `pi`. Herdr: agent kind. T3: provider — `pi`→`pi`, `claude`→`claudeAgent`, `opencode`→`opencode`; set via `modelSelection` only if that provider lists no constraints in `orchestrator_capabilities`, else omit and say so.
+
+T3: the worktree binding exists only through the launch — never have the launched agent create its own worktree; uncommitted changes are not copied; leave modes inherited.
 
 ## Route
 
@@ -16,101 +38,70 @@ Base repo: git root of the current directory. Worktrees live at `~/.herdr/worktr
 - A path ending in `.md` → **Markdown flow**.
 - Any other non-empty text → **Ad-hoc flow**.
 - Empty → stop; report what $ARGUMENTS looked like.
-- Optional `--kind <k>` sets the spawned agent kind (default `pi`).
+
+## Kickoff prompt
+
+Assemble per flow — fill `<target>` and the flow's CLAIM/VERDICT — and send verbatim:
+
+```
+/grill-with-docs work on <target>
+
+First assess readiness: is this actionable as written — not blocked, not moot
+(the mootness check, `grilling` skill), no prerequisite outside it? If not:
+reply starting `NOT-READY:` with what is missing or blocking, do not claim,
+and stop.
+
+<CLAIM/VERDICT>
+
+On proceed: run the deepen pass (`deepen` skill) on the settled task before
+implementing. When implementation lands — run the simplify pass,
+/fix-hard-violations, then /ship. On review comments: /mr-comments. On
+approval: /merge.
+```
 
 ## Ticket flow
 
 1. Resolve the ticket via the atlassian MCP: key, summary, type, assignee, status.
 2. Guard — read-only: ticket assigned to someone else and *In Progress* → stop, report, create nothing.
-3. Create the herdr worktree, branch `<type>-<key>` lowercase (type mapped from the ticket: feat/fix/chore/docs/…), on an up-to-date default branch. If the branch/worktree already exists, reuse it and say so.
-4. Create a herdr **workspace** named `<key>-<short-slug>`; start the agent in its root pane, cwd = the new worktree.
-5. Kickoff via `herdr agent prompt` — do not wait for completion. Report the workspace ID. Prompt text:
+3. Worktree `<type>-<key>` lowercase (type mapped from the ticket: feat/fix/chore/docs/…), base = default branch.
+4. Session `<key>-<short-slug>`.
+5. Kickoff with target = ticket URL and CLAIM/VERDICT:
 
-   ```
-   /grill-with-docs work on <ticket-url>
+   > If ready: claim it (assign to me, transition to In Progress; skip steps already satisfied), then run the session. An existence grilling verdict stops or trims the work before implementation — kill/defer: propose a Jira comment + transition via the atlassian MCP (list the real transitions; Duplicate resolution when a twin exists); descope: propose trimming the title and description. Execute these writes only on the user's yes.
 
-   First assess readiness: is this ticket actionable as written — not blocked,
-   not moot (the mootness check, `grilling` skill), no prerequisite outside
-   it? If ready: claim it (assign to
-   me, transition to In Progress; skip steps already satisfied), then run the
-   session. If not ready: reply starting with `NOT-READY:` plus what is missing
-   or blocking, do not claim, and stop.
-
-   Lifecycle: an existence grilling verdict stops or trims the work before
-   implementation — kill/defer: propose a Jira comment + transition via the
-   atlassian MCP (list the real transitions; Duplicate resolution when a twin
-   exists); descope: propose trimming the ticket's title and description.
-   Execute these writes only on the user's yes. On proceed: run the deepen
-   pass (`deepen` skill) on the settled task before implementing. When
-   implementation lands —
-   run the simplify pass, /fix-hard-violations, then /ship. On review
-   comments: /mr-comments. On approval: /merge.
-   ```
+   Report the session.
 
 ## MR flow
 
 1. `glab mr view <url>`: source branch, repo. The base repo must be the current git repo's origin — otherwise stop and report.
-2. Create the herdr worktree tracking the MR's source branch, reusing any existing one.
-3. Workspace named `mr-<iid>-<short-slug>`; start the agent in its root pane, cwd = the worktree.
-4. Kickoff via `herdr agent prompt` with `/gitlab-review <mr-url>` — do not wait for completion. Report the workspace ID.
+2. Worktree = the MR's source branch. T3: base = the MR's *target* branch, and prepend to the kickoff — verify the worktree is on `<source branch>`; if not, `git fetch origin && git checkout <source branch>` before reviewing.
+3. Session `mr-<iid>-<short-slug>`.
+4. Kickoff `/gitlab-review <mr-url>`. Report the session.
 
 ## Markdown flow
 
-The file is a read-only spec — neither `/work` nor the spawned session writes to it. A Jira key inside the file routes claiming through the ticket mechanics.
-
 1. Verify the file exists (resolve against the current directory); missing → stop and report. Slug = basename minus `.md`, lowercase.
 2. `git status --porcelain -- <file>`: untracked → the kickoff passes the main-repo absolute path with the caveat `(untracked in the main checkout — read it there; never commit it)`; tracked → pass the path as-is.
-3. Create the herdr worktree, branch `md-<slug>` lowercase, on an up-to-date default branch. If the branch/worktree already exists, reuse it and say so.
-4. Workspace `md-<short-slug>`; start the agent in its root pane, cwd = the new worktree.
-5. Kickoff via `herdr agent prompt` — do not wait for completion. Report the workspace ID. Prompt text:
+3. Worktree `md-<slug>` lowercase, base = default branch.
+4. Session `md-<short-slug>`.
+5. Kickoff with target = the markdown file path and CLAIM/VERDICT:
 
-   ```
-   /grill-with-docs work on <markdown file path>
+   > If a Jira ticket is referenced, claim it (assign to me, transition to In Progress; skip steps already satisfied), then run the session. An existence grilling verdict — report it and stop; propose the ticket's verdict writes via the atlassian MCP (comment + transition on kill/defer; title/description trim on descope), executed only on the user's yes. The markdown file is never written — its fate stays with the user.
 
-   First assess readiness: is this item actionable as written — not blocked,
-   not moot (the mootness check, `grilling` skill), no prerequisite outside
-   it? If a Jira ticket is referenced, claim it (assign to me, transition to
-   In Progress; skip steps already satisfied), then run the session. If not
-   ready: reply starting with `NOT-READY:` plus what is missing or blocking,
-   do not claim, and stop.
-
-   Lifecycle: an existence grilling verdict stops or trims the work before
-   implementation — report it and stop; if the file references a Jira ticket,
-   propose that ticket's verdict writes via the atlassian MCP (comment +
-   transition on kill/defer; title/description trim on descope), executed
-   only on the user's yes. The markdown file itself is never written — its
-   fate stays with the user. On proceed: run the deepen pass (`deepen`
-   skill) on the settled task before implementing. When implementation
-   lands — run the simplify pass, /fix-hard-violations, then /ship. On
-   review comments: /mr-comments. On approval: /merge.
-   ```
+   Report the session.
 
 ## Ad-hoc flow
 
-The description is the spec — there is no artifact: nothing is read, written, or claimed. A ticket key inside the description is context, not a claim target.
-
 1. Slug = first few kebab-case words of the description, lowercase.
-2. Create the herdr worktree, branch `adhoc-<slug>` lowercase, on an up-to-date default branch. If the branch/worktree already exists, reuse it and say so.
-3. Workspace `adhoc-<short-slug>`; start the agent in its root pane, cwd = the new worktree.
-4. Kickoff via `herdr agent prompt` — do not wait for completion. Report the workspace ID. Prompt text:
+2. Worktree `adhoc-<slug>` lowercase, base = default branch.
+3. Session `adhoc-<short-slug>`.
+4. Kickoff with target = the description and CLAIM/VERDICT:
 
-   ```
-   /grill-with-docs work on: <description>
+   > A ticket key in the description is context, not a claim target.
 
-   First assess readiness: is this task actionable as written — not blocked,
-   not moot (the mootness check, `grilling` skill), no prerequisite outside
-   it? If not ready: reply starting with `NOT-READY:` plus what is missing
-   or blocking, and stop.
-
-   Lifecycle: an existence grilling verdict stops or trims the work before
-   implementation — report it and stop. On proceed: run the deepen pass
-   (`deepen` skill) on the settled task before implementing. When
-   implementation lands — run the simplify pass, /fix-hard-violations, then
-   /ship. On review comments:
-   /mr-comments. On approval: /merge.
-   ```
+   Report the session.
 
 ## Rules
 
 - One work item per invocation; never batch.
-- `/work` only sets the table: worktree, workspace, agent. Cleanup of finished workspaces/worktrees is a separate decision, never automatic.
+- `/work` only sets the table: worktree, session, kickoff. Cleanup of finished worktrees/sessions is a separate decision, never automatic.

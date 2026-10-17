@@ -87,6 +87,32 @@ Why no provenance: the only automatic actor (auto-name) is guarded by
 name-existence; every other actor is user-explicit, so there is nothing to
 protect a manual name *from*. Do not reintroduce origin markers.
 
+### T3 Code titles vs pi session names
+
+Two separate naming systems with one-way sync. "Session name" (pi) and
+"thread title" (T3 Code) are different objects; do not conflate them.
+
+- **thread title** — T3 Code's label for a conversation, stored in T3's own
+  state DB, never in pi. Owned by T3's title pipeline, not by pi extensions.
+- **title seed** — T3's temporary thread title: the truncated first user
+  message. Persists indefinitely when the text-generation model is
+  unavailable — title-generation failures are silent.
+- **title regeneration** — T3's LLM pass that replaces the seed (initial,
+  after the first message) or re-titles an existing thread
+  (`regenerate_title`). Runs through T3's text-generation model, not through
+  the thread's agent session.
+- **text-generation model** — T3's helper-model setting behind titles, commit
+  messages, PR content, branch names, and review guides. Defaults to codex;
+  must point at an enabled provider for any of these to work.
+- **one-way push** — the only title↔name sync: at each fresh turn start,
+  T3's pi adapter sends RPC `set_session_name` with the current thread title
+  when it differs from the last title it pushed. pi session names never flow
+  back to T3. An auto-name rename inside a T3-spawned session therefore
+  diverges from the sidebar until T3's title next changes or the pi process
+  restarts. The divergence is deliberate: the pi name serves `pi /resume`,
+  the thread title serves T3's sidebar — each surface keeps the better
+  title for it.
+
 ### Artifact classes
 
 See `README.md` for the canonical tree. Glossary entries only where a term

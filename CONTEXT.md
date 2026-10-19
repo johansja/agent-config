@@ -33,6 +33,16 @@ a pi/opencode/Claude Code project.
   round and recorded as `Reviewed head: <sha>` in the posted note; the state
   anchor that makes re-review work across sessions.
 
+### T3 integration seam (pi ↔ T3 Code)
+
+- **T3-owned bridge** — the extension T3 injects into pi sessions (cache path via
+  `T3_PI_MCP_EXTENSION_PATH`). Registers the t3-code tools, runtime-mode
+  gating, and the orchestration instructions. Overwritten on T3 updates;
+  never patched from this repo — product gaps go to the T3 feedback list.
+- **Repo-owned T3 surface** — this repo's artifacts that invoke T3 tools:
+  `commands/work.md`, skills, global rules. The only durably changeable side
+  of the integration.
+
 ### Deletion pass (simplify skill ↔ grilling ↔ global rules)
 
 - **Deletion pass** — the `simplify` skill's procedure: enumerate candidate

@@ -26,10 +26,8 @@ Primitives used by the flows:
 - **Kickoff(prompt)** — fire-and-forget: never wait, never poll.
   - Herdr: `herdr agent prompt`.
   - T3: the `message` of the same single `t3_thread_launch` call — worktree, session, kickoff are one call; no `t3_thread_wait`.
-- **Report** — Herdr: the workspace ID. T3: `[<name>](t3-thread://v1/<threadId>)`; retain the threadId — no retry key, so if a launch is lost, check `t3_thread_list` before retrying.
+- **Report** — Herdr: the workspace ID. T3: `[<name>](t3-thread://v1/<threadId>)`.
 - **`--kind <k>`** — parsed from $ARGUMENTS, default `pi`. Herdr: agent kind. T3: provider — `pi`→`pi`, `claude`→`claudeAgent`, `opencode`→`opencode`; set via `modelSelection` only if that provider lists no constraints in `orchestrator_capabilities`, else omit and say so.
-
-T3: the worktree binding exists only through the launch — never have the launched agent create its own worktree; uncommitted changes are not copied; leave modes inherited.
 
 ## Route
 

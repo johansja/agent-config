@@ -71,3 +71,7 @@ Lessons accumulate so future sessions don't need the same re-prompt. Default tar
 ## Git Commits
 
 Follow the repo's commit-message convention, defaulting to Conventional Commits if none exists, and never add AI attribution trailers unless the project's AGENTS.md explicitly opts in.
+
+## T3 Code (when the t3-code MCP tools are present)
+
+Launchable work items — ticket, MR/PR, markdown file, or ad-hoc task — go through the `/work` command, not hand-rolled `t3_thread_launch`.

@@ -15,17 +15,11 @@ Exactly one backend executes the flow; detect it, don't ask:
 - No `HERDR_ENV` and the t3-code MCP tools respond → **T3 Code**. Confirm with one `orchestrator_capabilities` call before the first launch; keep its provider list for `--kind`.
 - Neither → stop; report that no orchestration backend is available.
 
-Primitives used by the flows:
+Primitives used by the flows — the Backend section is the only place their API takes shape:
 
-- **Worktree(branch, base)** — branch `<branch>` on an up-to-date `<base>` (default: the repo's default branch). If the worktree/branch already exists, reuse it and say so; never recreate.
-  - Herdr: `herdr worktree`.
-  - T3: part of the Launch — `workspaceStrategy {type:"worktree", baseRef:"<base>", branch:"<branch>", startFromOrigin:true}` (startFromOrigin = fetched). Existing worktree → `{type:"existing_worktree", worktreePath, branch}` from `t3_worktree_list`.
-- **Session(name)** — a named session rooted at the worktree.
-  - Herdr: `herdr workspace <name>`; agent in its root pane, cwd = the worktree.
-  - T3: the launched thread is the session — `title` = `<name>`; the launch binds it to the worktree.
-- **Kickoff(prompt)** — fire-and-forget: never wait, never poll.
-  - Herdr: `herdr agent prompt`.
-  - T3: the `message` of the same single `t3_thread_launch` call — worktree, session, kickoff are one call; no `t3_thread_wait`.
+- **Worktree(branch, base)** — `<branch>` off an up-to-date `<base>` (default: the repo's default branch). An existing worktree or branch is reused, never recreated, and the reuse is reported. T3: the `existing_worktree` strategy from `t3_worktree_list` when one is already there.
+- **Session(name)** — a named session rooted in the worktree. In T3 the launched thread *is* the session: `<name>` becomes its title.
+- **Kickoff(prompt)** — fire-and-forget: never wait, never poll. Herdr's `agent prompt` waits by default, so pass no wait flag; in T3 the worktree, session, and kickoff are one launch call.
 - **Report** — Herdr: the workspace ID. T3: `[<name>](t3-thread://v1/<threadId>)`.
 - **`--kind <k>`** — parsed from $ARGUMENTS, default `pi`. Herdr: agent kind. T3: provider — `pi`→`pi`, `claude`→`claudeAgent`, `opencode`→`opencode`; set via `modelSelection` only if that provider lists no constraints in `orchestrator_capabilities`, else omit and say so.
 
@@ -39,7 +33,7 @@ Primitives used by the flows:
 
 ## Kickoff prompt
 
-Assemble per flow — fill `<target>` and the flow's CLAIM/VERDICT — and send verbatim:
+Send verbatim, filling `<target>` and copying the flow's CLAIM/VERDICT from the parts below:
 
 ```
 /grill-with-docs work on <target>
@@ -57,15 +51,21 @@ implementing. When implementation lands — run the simplify pass,
 approval: /merge.
 ```
 
+CLAIM/VERDICT parts:
+
+- **CLAIM, ticket** — `Claim it (assign to me, transition to In Progress; skip steps already satisfied), then run the session.`
+- **CLAIM, markdown** — `Claim the referenced Jira ticket, if any (assign to me, transition to In Progress; skip steps already satisfied), then run the session.`
+- **VERDICT** — `An existence grilling verdict stops or trims the work before implementation — kill/defer: propose a Jira comment + transition via the atlassian MCP (list the real transitions; Duplicate resolution when a twin exists); descope: propose trimming the title and description. Execute these writes only on the user's yes.`
+- **MARKDOWN ADDENDUM**, after VERDICT — `Report the verdict and stop; the markdown file is never written — its fate stays with the user.`
+- **AD-HOC, no claim** — `A ticket key in the description is context, not a claim target.`
+
 ## Ticket flow
 
 1. Resolve the ticket via the atlassian MCP: key, summary, type, assignee, status.
 2. Guard — read-only: ticket assigned to someone else and *In Progress* → stop, report, create nothing.
 3. Worktree `<type>-<key>` lowercase (type mapped from the ticket: feat/fix/chore/docs/…), base = default branch.
 4. Session `<key>-<short-slug>`.
-5. Kickoff with target = ticket URL and CLAIM/VERDICT:
-
-   > If ready: claim it (assign to me, transition to In Progress; skip steps already satisfied), then run the session. An existence grilling verdict stops or trims the work before implementation — kill/defer: propose a Jira comment + transition via the atlassian MCP (list the real transitions; Duplicate resolution when a twin exists); descope: propose trimming the title and description. Execute these writes only on the user's yes.
+5. Kickoff, target = ticket URL, CLAIM/VERDICT = CLAIM ticket + VERDICT.
 
    Report the session.
 
@@ -82,9 +82,7 @@ approval: /merge.
 2. `git status --porcelain -- <file>`: untracked → the kickoff passes the main-repo absolute path with the caveat `(untracked in the main checkout — read it there; never commit it)`; tracked → pass the path as-is.
 3. Worktree `md-<slug>` lowercase, base = default branch.
 4. Session `md-<short-slug>`.
-5. Kickoff with target = the markdown file path and CLAIM/VERDICT:
-
-   > If a Jira ticket is referenced, claim it (assign to me, transition to In Progress; skip steps already satisfied), then run the session. An existence grilling verdict — report it and stop; propose the ticket's verdict writes via the atlassian MCP (comment + transition on kill/defer; title/description trim on descope), executed only on the user's yes. The markdown file is never written — its fate stays with the user.
+5. Kickoff, target = the markdown file path, CLAIM/VERDICT = CLAIM markdown + VERDICT + MARKDOWN ADDENDUM.
 
    Report the session.
 
@@ -93,9 +91,7 @@ approval: /merge.
 1. Slug = first few kebab-case words of the description, lowercase.
 2. Worktree `adhoc-<slug>` lowercase, base = default branch.
 3. Session `adhoc-<short-slug>`.
-4. Kickoff with target = the description and CLAIM/VERDICT:
-
-   > A ticket key in the description is context, not a claim target.
+4. Kickoff, target = the description, CLAIM/VERDICT = AD-HOC.
 
    Report the session.
 

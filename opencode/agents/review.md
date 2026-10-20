@@ -1,7 +1,7 @@
 ---
 description: Thin legwork reviewer. Invoking task sets scope and format; defers. Does NOT fix.
 mode: subagent
-model: BitdeerAI/deepseek-ai/DeepSeek-V4.1-Flash-1017
+model: BitdeerAI/zai-org/GLM-5.3-Flash
 permission:
   edit: deny
 ---

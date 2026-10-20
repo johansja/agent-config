@@ -5,9 +5,9 @@
     "npm:@johansja/pi-permission-gate"
   ],
   "defaultProvider": "bitdeerai",
-  "defaultModel": "zai-org/GLM-5.3-Flash",
+  "defaultModel": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
   "permissionGate": {
-    "model": "bitdeerai/deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    "model": "bitdeerai/zai-org/GLM-5.3-Flash",
     "reasoningEffort": "high",
     "blockLevel": "medium",
     "maxTokens": 32000

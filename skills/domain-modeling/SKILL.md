@@ -1,6 +1,6 @@
 ---
 name: domain-modeling
-description: Build and sharpen a project's domain model. Use when pinning down domain terminology or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model inline.
+description: Sharpen a project's domain model — terminology, ubiquitous language, recorded decisions.
 ---
 
 Active discipline — challenging terms, inventing edge-case scenarios, and writing glossary and decisions down the moment they crystallise. Merely reading `CONTEXT.md` for vocabulary is not this skill; this is for when you're changing the model.

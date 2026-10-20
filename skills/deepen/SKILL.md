@@ -1,6 +1,6 @@
 ---
 name: deepen
-description: Rewrite a settled task at expert depth before implementing. Use after a grilling session returns a proceed verdict (or the user confirms a task) and before implementation starts.
+description: Rewrite a settled task at expert depth, after a grill returns proceed and before implementing.
 ---
 
 The task as worded is the asker's best guess at how to reach the outcome. Rewrite it deeper, not bigger: raise the level of execution, never the scope of the deliverable.

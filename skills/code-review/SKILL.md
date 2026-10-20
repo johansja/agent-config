@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Review changes along axes — Standards, Spec, Correctness, Security. Use when the user wants to review a branch, MR/PR, work-in-progress diff, or asks to "review since X".
+description: Review a branch, MR/PR, or WIP diff along Standards, Spec, Correctness, and Security axes.
 ---
 
 Review a diff along one or more **axes**, each as a parallel `review` subagent so none pollutes the other's context. **Never merge or rerank across axes** — a change can pass one and fail another; side-by-side reporting is the point.

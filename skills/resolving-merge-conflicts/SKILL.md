@@ -1,6 +1,6 @@
 ---
 name: resolving-merge-conflicts
-description: Resolve an in-progress git merge or rebase conflict hunk by hunk. Use when a merge/rebase is paused on conflicts and the user needs help resolving.
+description: Resolve an in-progress git merge or rebase conflict hunk by hunk.
 ---
 
 Work hunk by hunk. Never `--abort`.

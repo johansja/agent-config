@@ -1,9 +1,9 @@
 ---
 name: cruft-hygiene
-description: Audit durable artifacts — docs (plans, ADRs, designs, READMEs) and code comments — for session-cruft before finalize or merge. Use when writing, revising, or reviewing such artifacts — especially after a grill/review round or a design pivot. Cuts process provenance; keeps the durable why.
+description: Audit a durable artifact — doc, ADR, README, code comment — for session-cruft before finalize or merge.
 ---
 
-Rule and bright-line test live in `AGENTS.md` ("No session-cruft in artifacts"). This skill is the executable audit — pattern catalog, judgment calls, workflow. The catalog here is canonical; `AGENTS.md` illustrates the principle.
+Rule and bright-line test live in `AGENTS.md` ("Durable artifacts carry the why, not the session that produced it"). This skill is the executable audit — pattern catalog, judgment calls, workflow. The catalog here is canonical; `AGENTS.md` illustrates the principle.
 
 ## Pattern catalog (grep, then judge each hit)
 

@@ -12,7 +12,7 @@ This repo is the source-of-truth for pi, opencode, and Claude Code agent artifac
 - **`skills/`** — shared model-invoked skills (Agent Skills standard). Each lives under `skills/<name>/SKILL.md` and is symlinked into `~/.agents/skills/` (pi + opencode) and `~/.claude/skills/` (Claude Code).
 - **`commands/`** — shared slash-command templates (markdown with YAML frontmatter). Compatible with pi (`prompts/`), opencode (`commands/`), and Claude Code (`commands/`). Symlinked into `~/.pi/agent/prompts/`, `~/.config/opencode/commands/`, and `~/.claude/commands/`.
 - **`scripts/`** — versioned helper harnesses (e.g., `bench-models.mjs`), symlinked into `~/.pi/agent/bin/` and invoked from commands. No npm/package.json — plain Node ESM, zero deps.
-- **`global/`** — canonical global rules. `global/AGENTS.md` is symlinked by `~/.pi/agent/AGENTS.md`, `~/.config/opencode/AGENTS.md`, and `~/.claude/CLAUDE.md` (Claude Code's memory file) — same rules in every agent. Editing this file is the only step to change agent behavior across all of them.
+- **`global/`** — canonical global rules. `global/AGENTS.md` is symlinked by `~/.pi/agent/AGENTS.md`, `~/.config/opencode/AGENTS.md`, and `~/.claude/CLAUDE.md` (Claude Code's memory file) — same rules in every agent. Editing this file is the only step to change agent behavior across all of them. Every line is a boundary or non-inferable taste; mandated procedure belongs in the skill that executes it. Budget: ≤550 words, loaded on every turn of every session — a new line displaces one.
 - **`.pi/workflow/`** — pi's live session state (gitignored). Not deployed.
 
 ## Development Guidelines (pi extensions)
@@ -34,6 +34,8 @@ This repo is the source-of-truth for pi, opencode, and Claude Code agent artifac
 ## Pruning artifacts
 
 Zero in one agent's logs is not zero overall — skills/commands deploy to all three. Evidence sources: pi session JSONLs (SKILL.md reads + expanded command bodies), `~/.claude/projects/**/*.jsonl` (`<command-name>` tags), opencode's `opencode.db` `part` table (expanded bodies are not stored — distinctive fragments prove presence only, never invocation counts). Confirm with the user before cutting anything on single-store telemetry.
+
+Grep the *tool-call arguments*, never raw file text: every session echoes the whole skill index into its system prompt, so a text search for `skills/<name>/SKILL.md` returns ≈1 hit per session for *every* skill and ranks them all identically. Parse `toolCall` blocks with a `read`/`Skill` name and take the path from the arguments.
 
 ## References
 

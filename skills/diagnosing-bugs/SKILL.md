@@ -1,6 +1,6 @@
 ---
 name: diagnosing-bugs
-description: Diagnose hard bugs and performance regressions. Use when the user reports something broken, throwing, failing, or slow, or says debug/diagnose this.
+description: Diagnose a hard bug or performance regression — broken, throwing, failing, or slow.
 ---
 
 Build a tight, red-capable feedback loop before anything else — one command you've already run that goes red on the user's exact symptom (failing test, curl, replay, throwaway harness, bisect, fuzz). No loop, no hypothesis; theorising before the loop exists is the failure this prevents. Tighten it: seconds not minutes, deterministic (pin time/seed/fs/net), assert the specific symptom not "didn't crash". Non-deterministic bugs: raise the reproduction rate (loop 100×, stress, parallelise) — 50% flake is debuggable, 1% isn't. If you can't build one, stop and ask for env access, a captured artifact, or prod-instrumentation permission.

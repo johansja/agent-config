@@ -1,6 +1,6 @@
 ---
 name: writing-for-agents
-description: Writing documents for agents. Use when creating or editing skills, or modifying AGENTS.md, CLAUDE.md, or other agent-consumed docs.
+description: Write or edit agent-consumed docs — skills, AGENTS.md, CLAUDE.md.
 ---
 
 Reference for writing any document an agent consumes — a skill, an `AGENTS.md` / `CLAUDE.md`, a doc reached by a pointer. The packaging differs; the levers don't. **Predictability** — the agent taking the same *process* every run — is the root virtue; every lever below serves it.

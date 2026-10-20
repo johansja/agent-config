@@ -1,9 +1,9 @@
 ---
 name: simplify
-description: Run a deletion pass over a code change. Use before declaring an implementation complete, or when the user asks whether code can be simplified.
+description: Run a deletion pass over a change before it is declared complete.
 ---
 
-The bias lives in the global rules (`AGENTS.md`, Subtractive Bias — its never-cut list overrides every catalog hit below). This skill is the executable pass. The catalog here is canonical.
+The bias lives in the global rules (`AGENTS.md`, Subtractive — its never-cut list overrides every catalog hit below). This skill is the executable pass. The catalog here is canonical.
 
 ## Resolve scope
 

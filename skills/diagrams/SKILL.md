@@ -1,6 +1,6 @@
 ---
 name: diagrams
-description: Draw diagrams. Use when the user asks for a diagram, flowchart, sequence diagram, architecture diagram, ER or state diagram, or visualization, or says draw / visualize / render this.
+description: Draw a diagram — flowchart, sequence, architecture, ER, or state.
 ---
 
 Pick the first rung that holds. Stop climbing.

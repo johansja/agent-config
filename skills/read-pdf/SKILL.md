@@ -1,6 +1,6 @@
 ---
 name: read-pdf
-description: Extract text from PDF files. Use when the user asks to read, extract, quote, search, or summarize a PDF, when the read tool refuses a .pdf, or when a PDF source needs to become text for analysis. Covers native CLI, Python venv fallback, page ranges, encrypted PDFs, and scanned/image-only detection.
+description: Extract text from a PDF — a .pdf the read tool refused, page ranges, encrypted, scanned.
 ---
 
 The `read` tool accepts text and images, not PDF. Extract text first, then read or paste the result. Every step is host-portable — no `brew` required.

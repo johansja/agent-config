@@ -1,6 +1,6 @@
 ---
 name: codebase-navigation
-description: Navigate, explore, and understand an unfamiliar codebase. Use when the user asks "how does this work", "walk me through", "explain the architecture", or wants to understand, map, or explore code.
+description: Explain how a codebase works — architecture walkthrough, code mapping, codebase exploration.
 ---
 
 1. **Recon** via `scout` (subagent or direct tools). Thoroughness: quick = targeted lookup, medium = follow imports and critical sections, thorough = trace deps + check tests/types.

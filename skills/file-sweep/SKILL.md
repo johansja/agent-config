@@ -1,6 +1,6 @@
 ---
 name: file-sweep
-description: Run a periodic file cleanup sweep — scan Inbox/Downloads/Desktop strays, classify against a PARA tree, propose a filing plan, and move files only after approval. Use when the user mentions file organization, cleanup, filing, tidying files, or the weekly sweep.
+description: Run the periodic file sweep — scan strays, propose a filing plan, move only after approval.
 ---
 
 # File Sweep

@@ -1,6 +1,6 @@
 ---
 name: grilling
-description: Interview the user relentlessly about a plan, decision, or idea. Use when intent is vague, underspecified, or the user wants to stress-test their thinking.
+description: Interview the user relentlessly to stress-test a plan, decision, or vague intent.
 ---
 
 Grill **round by round**, not one at a time. Map the decision tree; each round, ask the whole **frontier** — every question whose prerequisites are settled — as one numbered list with a recommended answer each. Recompute from answers, repeat. Same tree, same order, fewer turns.

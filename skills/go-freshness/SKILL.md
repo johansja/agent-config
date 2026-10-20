@@ -1,6 +1,6 @@
 ---
 name: go-freshness
-description: Go freshness — version and idiom currency. Use when writing or reviewing Go where recent language/stdlib additions matter, checking what a Go release adds, or upgrading a repo's Go toolchain.
+description: Go version and idiom currency — what a release adds, toolchain upgrades, modernization.
 ---
 
 # Go freshness

@@ -1,6 +1,6 @@
 ---
 name: t3-pr-watch
-description: Watch T3 Code pull requests/MRs for reviews, comments, and check results, and write maintainer PR review guides. Use when the user says "watch this PR/MR", "tell me when my PR is reviewed", "keep an eye on the MR", "write a PR guide", or "prep this PR for review" — only when the t3-code MCP tools are present (pi running under T3 Code).
+description: Watch a T3 Code PR/MR for reviews and checks; write a maintainer PR guide. Needs t3-code MCP tools.
 ---
 
 # T3 Code pull-request tools

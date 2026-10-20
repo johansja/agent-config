@@ -1,6 +1,6 @@
 ---
 name: research
-description: Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. Use when the user wants a topic researched, docs or API facts gathered, or reading legwork delegated to a subagent.
+description: Research a question against primary sources; capture findings as a Markdown file in the repo.
 ---
 
 Spin up a `general` subagent to do the research, so you keep working while it reads. Multiple research questions blocking a build — fire one subagent each in parallel on throwaway branches, don't park them for a later session.

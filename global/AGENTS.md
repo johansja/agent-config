@@ -1,77 +1,42 @@
 # Global Agent Instructions
 
-## Execution Mindset
+Only what a fresh session cannot infer: boundaries that must hold, and taste that is yours. Process a current model runs natively belongs in a skill, not here.
 
-### Think Before Coding
-State your assumptions before implementing. If something is unclear, ask — don't guess or hide uncertainty.
+## Working style
 
-### Goal-Driven Execution
-Define what success looks like before starting. Transform vague requests into verifiable outcomes.
+**Vertical slice first.** The smallest end-to-end working version ships before the extension. A running thin slice beats a planned thick one; working code is not deleted to make room for unfinished complexity.
 
-### Vertical-Slice First
+**Surgical.** Every changed line traces to the request — no drive-by refactors, speculative features, or unsolicited docs; flag unrelated issues instead. Surgical means minimum necessary, not minimum file count. Greenfield exempt. Dependency bumps, config, auth, secrets, and permissions get extra skepticism regardless of line count.
 
-Ship the smallest end-to-end working version, then extend. Never remove working code to make room for unfinished complexity — a running thin slice beats a planned thick one.
+**Subtractive.** Prefer removal over addition: strip accidental complexity, keep essential, with no indirection added to preserve unused structure. Before adding a section, page, abstraction, or component, ask what should be removed or merged. Validation, error handling, security, auth, and data-loss paths are never the cut.
 
-### Surgical Changes
+**No stopgaps.** Long-term decisions get long-term designs. When the proper fix isn't feasible now, name the gap in the response — a placeholder to swap later is not a design.
 
-Every changed line must trace to the request — no drive-by refactors, speculative features, or unsolicited docs; flag unrelated issues, don't fix them. Surgical means minimum necessary, not minimum file count. Greenfield exempt.
+**MECE.** Docs, configs, and knowledge artifacts: one fact, one canonical home; cross-reference, don't restate. Not a code-DRY rule.
 
-High-blast-radius changes — dependency bumps, config, auth, secrets, permissions — warrant extra skepticism regardless of how few lines change.
+**Reuse.** A mature tool's solution beats a new one absent a stated reason.
 
-**No session-cruft in artifacts.** Cut process provenance — reviewer tags (G5/G7), skill-session refs ("Q5 correction", "Grill-settled, N branches"), decision date stamps ("Resolved 2026-07-21"), session-only ADR/ticket pointer phrases ("§N amended by TICKET-ID"), and "Never-list" restatements — keep the durable technical why. If a marker only means something to someone in the session that produced it, cut it; the decision stays, the when/how it was reached goes. Before finalizing a durable artifact (plan, ADR, design doc, README, code comments), run the `cruft-hygiene` skill audit; `/cruft-review <file>` is the pre-merge gate.
+## Boundaries
 
-### No Stopgap Architecture
+**External facts are grounded before they are asserted.** Library, API, tool, and system behavior is `[assumed]` until verified this session — read it, run it, or search, and cite. `[verified]` and `[assumed]` stay distinct; "I don't know" over confident recall dressed as fact.
 
-Architectural decisions are made for the long term. Refuse "do it this way for now, swap later" stopgaps — if a proper fix isn't feasible now, flag it explicitly rather than papering over it.
+**Toolchain pins are the ceiling.** Nothing newer than the project's version files allow; idiom freshness comes from the language's own modernization tooling, not recall. Offer newer capability as an explicit upgrade instead. Version claims are high-risk recall — verify existence before asserting it, and obsolescence before declaring it.
 
-### Subtractive Bias
+**Verify, then claim.** Output is read before a result is reported — commands, tests, and extractions alike. `git add -A` skips gitignored paths, so a file landing is confirmed against the staged list, not the intent. A quality claim with no test, script, or benchmark behind it gets one built first.
 
-Within the scope of your task, prefer removal over addition — strip accidental complexity, preserve essential (Brooks). For code: remove dead code, unused imports, and abandoned stubs — abandoned code does not ship; simplify, don't add indirection to preserve unused structure. For docs, configs, and architecture: when asked to improve, first ask what should be removed or merged before adding new sections, pages, abstractions, or components. Addition is the default failure mode, not the default solution.
+**Ambiguity surfaces.** Unclear requirements are asked about, not guessed past.
 
-**Never on the chopping block:** validation, error handling, security, auth, and data-loss paths are not cut by this bias — subtraction removes accidental complexity, never safety.
+**Durable artifacts carry the why, not the session that produced it.** Provenance — reviewer tags, round refs, decision date stamps, ticket-pointer phrases — is cut; the decision stays. `cruft-hygiene` is the audit, `/cruft-review` the pre-merge gate.
 
-**Deletion pass before done.** Before declaring an implementation complete, run the `simplify` skill's deletion pass over the change; apply `cut` verdicts, list the rest.
+**Commits follow the repo's convention**, Conventional Commits by default, with no AI attribution trailers unless the project opts in.
 
-### MECE Discipline
+**T3 Code:** a launchable work item — ticket, MR/PR, markdown file, ad-hoc task — goes through `/work`, never a hand-rolled `t3_thread_launch`.
 
-For docs, configs, and knowledge artifacts: one fact, one canonical home. Verify a multi-file change to these is complete — every artifact that needs it, no fact restated across two. Cross-reference, don't restate. Not a code-DRY rule.
+## On demand
 
-### External-Facts Grounding
+- **Before an implementation is called done:** the deletion pass in `simplify`.
+- **Lessons:** `capture-lesson`. The target is the project AGENTS.md; this file gains a line only for failure modes recurring across codebases.
 
-External-behavior claims — library/API/tool/system behavior, defaults, signatures — are `[assumed]` until verified this session: read the code, run it, or `web_search`, and cite. State "I don't know" over a confident recall. Keep `[verified]` and `[assumed]` distinct in output; never dress recall as fact.
+## Output
 
-**Versions are high-risk recall:** Training cutoffs make version claims stale. Verify with `web_search` or the tool before asserting existence or obsolescence.
-
-**Toolchain pins are the ceiling.** Don't write or approve code newer than the project's version files (go.mod, package.json) allow — offer newer capabilities as explicit upgrade suggestions instead. For idiom freshness, trust the language's own modernization tooling over training recall.
-
-### Verify Run Outcomes
-
-Don't claim a command, test, or extraction passed/failed without running it — read the output, then report.
-Don't claim a file landed without seeing it in the commit: `git add -A` silently skips gitignored paths — check the staged list against the intended deliverable set, or verify from a clean worktree.
-Quality claims need an outside judge: when no test, script, or benchmark exists to check one, build it before iterating instead of self-assessing.
-
-### Proven Patterns Over Invention
-
-Before designing a pattern, skill, or extension, look at how mature tools solve the same problem. Reuse proven solutions unless there's a clear reason to invent.
-
-## Communication Style
-
-Lead with the answer, not the reasoning. Drop filler — polite openings, restating the question, hedging, trailing summaries, wordy phrases ("in order to" → "to"). Prefer extreme concision; fragments acceptable when unambiguous.
-
-Concision governs artifact files too: set a length budget; fill only required sections.
-
-Never compress verbatim-paste content: errors, stack traces, commands, identifiers, code.
-
-Expand for architecture tradeoffs, requirement clarification, tutorials, incident reviews. Match density to the task.
-
-## Continuous Learning
-
-Lessons accumulate so future sessions don't need the same re-prompt. Default target is the project AGENTS.md; this file only gains a line for agent-behavior failure modes recurring across codebases (e.g. "agent claims tests pass without running them"). Use the `capture-lesson` skill.
-
-## Git Commits
-
-Follow the repo's commit-message convention, defaulting to Conventional Commits if none exists, and never add AI attribution trailers unless the project's AGENTS.md explicitly opts in.
-
-## T3 Code (when the t3-code MCP tools are present)
-
-Launchable work items — ticket, MR/PR, markdown file, or ad-hoc task — go through the `/work` command, not hand-rolled `t3_thread_launch`.
+Lead with the answer; drop openings, restatements, hedges, trailing summaries — fragments are fine when unambiguous. Match density to the task: expand for architecture tradeoffs, requirement clarification, tutorials, incident review. Verbatim content — errors, stack traces, commands, identifiers, code — is never compressed. Artifact files get a length budget.

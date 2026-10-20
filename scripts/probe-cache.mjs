@@ -28,7 +28,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 const DEFAULTS = {
   mode: 'burst',
-  models: ['zai-org/GLM-5.3-Flash', 'deepseek-ai/DeepSeek-V4.1-Flash'],
+  models: ['zai-org/GLM-5.3-Flash', 'deepseek-ai/DeepSeek-V4.1-Flash-1017'],
   n: 6,
   rounds: null, // per-mode default: burst 3, gap 2
   gaps: [10, 30, 60, 120],

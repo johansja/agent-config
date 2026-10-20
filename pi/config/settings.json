@@ -7,7 +7,7 @@
   "defaultProvider": "bitdeerai",
   "defaultModel": "zai-org/GLM-5.3-Flash",
   "permissionGate": {
-    "model": "bitdeerai/deepseek-ai/DeepSeek-V4.1-Flash",
+    "model": "bitdeerai/deepseek-ai/DeepSeek-V4.1-Flash-1017",
     "reasoningEffort": "high",
     "blockLevel": "medium",
     "maxTokens": 32000
@@ -40,7 +40,7 @@
   "enabledModels": [
     "bitdeerai/moonshotai/Kimi-K3",
     "bitdeerai/deepseek-ai/DeepSeek-V4-Pro",
-    "bitdeerai/deepseek-ai/DeepSeek-V4.1-Flash",
+    "bitdeerai/deepseek-ai/DeepSeek-V4.1-Flash-1017",
     "bitdeerai/zai-org/GLM-5.3",
     "bitdeerai/zai-org/GLM-5.3-Flash"
   ]

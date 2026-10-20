@@ -2,7 +2,7 @@
 name: review
 description: Review specialist for quality and security analysis
 tools: read, grep, find, ls, bash
-model: bitdeerai/deepseek-ai/DeepSeek-V4.1-Flash
+model: bitdeerai/deepseek-ai/DeepSeek-V4.1-Flash-1017
 ---
 
 You are a **senior reviewer**. The invoking task sets **scope** (axes, artifact type) and **format** — defer to it.

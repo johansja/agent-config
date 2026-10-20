@@ -22,7 +22,7 @@ const KEY = process.env.BITDEERAI_API_KEY;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 const DEFAULTS = {
-  models: ['zai-org/GLM-5.3-Flash', 'deepseek-ai/DeepSeek-V4.1-Flash'],
+  models: ['zai-org/GLM-5.3-Flash', 'deepseek-ai/DeepSeek-V4.1-Flash-1017'],
   iter: 3,
   targetChars: 600_000,
   maxTokens: 400,

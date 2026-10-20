@@ -27,7 +27,7 @@
 // The SSE stream ends cleanly — no finish_reason, no usage — so a long
 // generation surfaces as a silently truncated 200. Effective per-request output
 // is speed-bound, whatever maxTokens says: ≈50K tokens at ~85 tok/s (K3),
-// ≈90K at ~150 tok/s (DS-V4.1-Flash). Raise the gateway timeout before raising any
+// ≈90K at ~150 tok/s (DS-V4.1-Flash-1017). Raise the gateway timeout before raising any
 // maxTokens.
 {
   "$schema": "https://pi.dev/schemas/models.schema.json",
@@ -69,7 +69,7 @@
           // max_completion_tokens caps reasoning + visible combined — small
           // caps can yield empty visible content. 1M+ ctx probe-verified:
           // prompt 1,044,062 + completion → 200. Decode ~150–195 tok/s.
-          "id": "deepseek-ai/DeepSeek-V4.1-Flash",
+          "id": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
           "reasoning": true,
           "input": [
             "text",

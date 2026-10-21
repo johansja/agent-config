@@ -2,7 +2,8 @@
   "$schema": "https://pi.dev/schemas/settings.schema.json",
   "lastChangelogVersion": "1.2.0",
   "packages": [
-    "npm:@johansja/pi-permission-gate"
+    "npm:@johansja/pi-permission-gate",
+    "npm:@cortexkit/pi-magic-context"
   ],
   "defaultProvider": "bitdeerai",
   "defaultModel": "deepseek-ai/DeepSeek-V4.1-Flash-1017",

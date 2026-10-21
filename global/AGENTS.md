@@ -35,7 +35,7 @@ Only what a fresh session cannot infer: boundaries that must hold, and taste tha
 ## On demand
 
 - **Before an implementation is called done:** the deletion pass in `simplify`.
-- **Lessons:** `capture-lesson`. The target is the project AGENTS.md; this file gains a line only for failure modes recurring across codebases.
+- **Lessons:** `capture-lesson`. Durable rules go to the project AGENTS.md; agent memory is recall, not the rulebook; this file gains a line only for failure modes recurring across codebases.
 
 ## Output
 

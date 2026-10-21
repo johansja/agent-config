@@ -10,6 +10,8 @@ Shared artifact classes (skills, commands, global rules) deploy to all three age
 agent-config/
 ├── AGENTS.md                  # project-level instructions (this repo's own guidance)
 ├── README.md
+├── config/
+│   └── magic-context.jsonc    # shared CortexKit config — pi + opencode
 ├── global/
 │   └── AGENTS.md              # canonical global rules — symlinked by ALL agents
 ├── skills/                    # shared model-invoked skills — symlinked by ALL agents
@@ -111,6 +113,9 @@ their tools — `cmux-session.ts` (cmux), `herdr-agent-state.ts` (herdr),
 (emdash). Their tools overwrite them on upgrade — never edit or absorb them.
 They cover session lifecycle; the blocked-state seam belongs to `notify-*`.
 
+`@cortexkit/pi-magic-context` is a package-installed extension (declared in
+`settings.json` `packages[]`, not a file here); see [Magic Context](#magic-context-shared).
+
 ## Commands (shared)
 
 Slash-command templates (markdown with YAML frontmatter). Compatible with pi (`prompts/`), opencode (`commands/`), and Claude Code (`commands/`). Each lives in `commands/<name>.md` and is symlinked into `~/.pi/agent/prompts/`, `~/.config/opencode/commands/`, and `~/.claude/commands/`.
@@ -142,6 +147,45 @@ Reinstall sources:
 | powerpoint | custom (possibly skills.sh) |
 | infra | `~/projects/infra-skill` (Bitdeer AI Cloud reference) |
 | shadcn | shadcn/ui toolchain (possibly skills.sh) |
+
+## Magic Context (shared)
+
+Magic Context owns context management and cross-session memory for pi and
+opencode. One config and one SQLite store are shared by both; only the
+hidden-agent model ids differ per harness.
+
+- **Config:** `config/magic-context.jsonc` → `~/.config/cortexkit/magic-context.jsonc`.
+  Keep it under `config/`, not the repo root: Magic Context treats a root-level
+  `magic-context.jsonc` as a legacy project config and moves it. The historian
+  and dreamer run on the cheap main model at low effort. Embeddings stay local.
+- **pi:** `npm:@cortexkit/pi-magic-context` is declared in `settings.json`
+  `packages[]`; install with `pi install npm:@cortexkit/pi-magic-context`. Native
+  pi compaction stays enabled as the fallback; Magic Context cancels it at runtime.
+- **opencode:** registered with `opencode plugin add
+  @cortexkit/opencode-magic-context@latest` (vendor-managed; `opencode.jsonc` is
+  machine-local and not versioned here). `compaction.auto` and `compaction.prune`
+  are disabled so native compaction cannot double-compress.
+- **Dreamer:** enabled on the default schedules with the same model;
+  `review-user-memories` is disabled because an inferred cross-project profile
+  would compete with the hand-written global rules. `retrospective` stays on as
+  the automatic counterpart to `capture-lesson`: project lessons from
+  corrections, not user observations. `dreamer.tasks.<task>.schedule: ""`
+  disables any other task; `maintain-docs` is already off by default.
+- **Visible behavior:** primary sessions get `<session-history>` /
+  `<project-memory>` blocks in the system prompt; Magic Context's guidance asks
+  the model to prefix replies with `§N§` tags so `ctx_reduce` / `ctx_expand` can
+  reference turns.
+- **Subagents:** the agent templates carry `<!-- magic-context: skip -->`, the
+  default skip signature, so short-lived subagent prompts get no tagging guidance
+  or memory block.
+- **Store:** `~/.local/share/cortexkit/magic-context/context.db` (SQLite) and
+  `~/.local/share/cortexkit/magic-context/models/` (local embedding model, ~90 MB
+  on first use). Losing the store loses memory and history.
+- **Doctor:** `npx @cortexkit/magic-context@latest doctor --harness pi` /
+  `--harness opencode`.
+
+Deploying is restart-shaped: pi loads the package and opencode caches agent
+prompts at startup, so restart both once after the install steps.
 
 ## Config (pi)
 
@@ -182,6 +226,10 @@ ln -sf "$PWD/pi/agents/<name>.md" ~/.pi/agent/agents/<name>.md
 # OpenCode subagent templates → ~/.config/opencode/agents/
 ln -sf "$PWD/opencode/agents/<name>.md" ~/.config/opencode/agents/<name>.md
 
+# OpenCode Magic Context (vendor-managed; writes the machine-local opencode.jsonc)
+opencode plugin add @cortexkit/opencode-magic-context@latest
+# then set "compaction": { "auto": false, "prune": false } in that file
+
 # Claude Code subagent templates → ~/.claude/agents/
 # (only agents with no Claude built-in equivalent — e.g. review;
 #  general/plan/scout are covered by built-in general-purpose/Plan/Explore)
@@ -210,6 +258,13 @@ ln -sf "$PWD/scripts/probe-cache.mjs" ~/.pi/agent/bin/probe-cache.mjs   # prompt
 # pi writes runtime state into the deployed copy; re-copy on shared-default changes.
 cp "$PWD/pi/config/settings.json" ~/.pi/agent/settings.json
 ln -sf "$PWD/pi/config/models.json" ~/.pi/agent/models.json
+
+# Pi package-declared extensions → ~/.pi/agent/npm/ (settings.json packages[])
+pi install npm:@cortexkit/pi-magic-context
+
+# Magic Context shared config → ~/.config/cortexkit/ (pi + opencode)
+mkdir -p ~/.config/cortexkit
+ln -sf "$PWD/config/magic-context.jsonc" ~/.config/cortexkit/magic-context.jsonc
 
 # MCP config → ~/.config/mcp/ (pi's ~/.pi/agent/mcp.json symlinks here)
 ln -sf "$PWD/pi/config/mcp.json" ~/.config/mcp/mcp.json

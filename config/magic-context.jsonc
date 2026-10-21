@@ -1,0 +1,58 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cortexkit/magic-context/master/assets/magic-context.schema.json",
+  // Shared by pi and opencode. The historian is a background summarizer, so it
+  // runs on the cheap main model at low effort instead of the session's max
+  // thinking level. Provider ids differ per harness: opencode exposes
+  // "BitdeerAI", pi exposes "bitdeerai".
+  "historian": {
+    "opencode": {
+      "model": {
+        "model": "BitdeerAI/deepseek-ai/DeepSeek-V4.1-Flash-1017",
+        "variant": "fast"
+      }
+    },
+    "pi": {
+      "model": {
+        "model": "bitdeerai/deepseek-ai/DeepSeek-V4.1-Flash-1017",
+        "thinking_level": "low"
+      }
+    }
+  },
+  // Dreamer keeps the memory pool trustworthy: map -> verify (nightly) ->
+  // curate (weekly) -> classify (daily), plus a weekly broad re-verify. It
+  // uses the same cheap model at low effort. `retrospective` stays on as the
+  // automatic counterpart to capture-lesson: it records project lessons from
+  // corrections, not user observations. `review-user-memories` is off because
+  // an inferred cross-project profile would compete with the hand-written
+  // global AGENTS.md.
+  "dreamer": {
+    "opencode": {
+      "model": {
+        "model": "BitdeerAI/deepseek-ai/DeepSeek-V4.1-Flash-1017",
+        "variant": "fast"
+      }
+    },
+    "pi": {
+      "model": {
+        "model": "bitdeerai/deepseek-ai/DeepSeek-V4.1-Flash-1017",
+        "thinking_level": "low"
+      }
+    },
+    "tasks": {
+      "retrospective": {
+        "schedule": "0 5 * * *"
+      },
+      "review-user-memories": {
+        "schedule": ""
+      },
+      "verify-broad": {
+        "schedule": "0 4 * * 0"
+      }
+    }
+  },
+  // Local embedding model (~90 MB, downloaded on first use). Keep on so
+  // memories are searchable semantically across harnesses.
+  "embedding": {
+    "provider": "local"
+  }
+}

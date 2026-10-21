@@ -1,5 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/cortexkit/magic-context/master/assets/magic-context.schema.json",
+  // 65% of a 1M-context model is ~650k tokens, which normal sessions never
+  // reach. Trigger the historian at an absolute 120k tokens (~12%) instead.
+  "execute_threshold_tokens": {
+    "default": 120000
+  },
   // Shared by pi and opencode. The historian is a background summarizer, so it
   // runs on the cheap main model at low effort instead of the session's max
   // thinking level. Provider ids differ per harness: opencode exposes

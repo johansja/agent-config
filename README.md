@@ -280,7 +280,7 @@ ln -sf "$PWD/global/AGENTS.md" ~/.claude/CLAUDE.md
 
 Symlinks ensure edits land immediately in all deployed agents without copying.
 
-Verified working against pi 1.2.0 · opencode 2.0.25 · Claude Code 2.1.287 (2026-10-13) — bump on each sync audit.
+Verified working against pi 1.4.0 · opencode 2.1.2 · Claude Code 2.1.306 (2026-10-22) — bump on each sync audit.
 
 ## References
 

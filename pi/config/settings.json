@@ -40,7 +40,6 @@
   "quietStartup": false,
   "enabledModels": [
     "bitdeerai/moonshotai/Kimi-K3",
-    "bitdeerai/deepseek-ai/DeepSeek-V4-Pro",
     "bitdeerai/deepseek-ai/DeepSeek-V4.1-Flash-1017",
     "bitdeerai/zai-org/GLM-5.3",
     "bitdeerai/zai-org/GLM-5.3-Flash"

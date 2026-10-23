@@ -10,8 +10,12 @@
 // was 262144-capped on the JP pool, SG serves it 1M+). 1M-class models sit at
 // 1000000, not the weights' raw 1048576, for boundary headroom.
 //
-// All models are always-on reasoners (reasoning_content). thinkingLevelMap null
-// = never send reasoning_effort (per-model server defaults noted inline).
+// Every model emits reasoning_content. The gateway takes
+// minimal|low|medium|high|xhigh|max for every model and 400s on any other value
+// (an unknown value does not fall back to the default); only DS-V4.1-Flash also
+// takes "none", where it and an omitted field both yield zero reasoning tokens.
+// thinkingLevelMap null = level hidden; xhigh/max are unavailable unless mapped,
+// lower levels clamp up to the nearest mapped one.
 //
 // compat facts (family-wide; canonical here, per-model notes inline):
 // - requiresReasoningContentOnAssistantMessages = Preserved Thinking replay of
@@ -38,34 +42,10 @@
       "apiKey": "$BITDEERAI_API_KEY",
       "models": [
         {
-          // Effort high/max only; serves 384K output at high/max.
-          "id": "deepseek-ai/DeepSeek-V4-Pro",
-          "reasoning": true,
-          "thinkingLevelMap": {
-            "off": null,
-            "minimal": null,
-            "low": null,
-            "medium": null,
-            "high": "high",
-            "xhigh": null,
-            "max": "max"
-          },
-          "contextWindow": 1000000,
-          "maxTokens": 384000,
-          "cost": {
-            "input": 0.435,
-            "output": 0.87,
-            "cacheRead": 0.004,
-            "cacheWrite": 0
-          },
-          "compat": {
-            "supportsDeveloperRole": false,
-            "supportsReasoningEffort": true,
-            "requiresReasoningContentOnAssistantMessages": true
-          }
-        },
-        {
-          // Multimodal (image input gateway-probed). Effort low/high/max.
+          // Multimodal (image input gateway-probed). Effort off/low/high/max;
+          // off = "none", verified 0 reasoning tokens. Provider "low" thinks
+          // less than "minimal" (~114 vs ~186), so both pi levels below medium
+          // resolve to "low".
           // max_completion_tokens caps reasoning + visible combined — small
           // caps can yield empty visible content. 1M+ ctx probe-verified:
           // prompt 1,044,062 + completion → 200. Decode ~150–195 tok/s.
@@ -76,7 +56,7 @@
             "image"
           ],
           "thinkingLevelMap": {
-            "off": null,
+            "off": "none",
             "minimal": null,
             "low": "low",
             "medium": null,
@@ -99,7 +79,8 @@
           }
         },
         {
-          // Always thinks (server default max). Effort changes invalidate its prefix
+          // Always thinks (an omitted field still reasons heavily, "none" 400s).
+          // Effort changes invalidate its prefix
           // cache — one effort per session; never switch INTO K3 mid-session.
           // 1M+ ctx probe-verified: prompt 1,027,109 + completion → 200.
           "id": "moonshotai/Kimi-K3",
@@ -131,7 +112,10 @@
           }
         },
         {
-          // Text-only. GLM family defaults to max effort if the field is omitted or unknown.
+          // Text-only. GLM family: two effort regimes, not six — low/high reason
+          // adaptively (~40–90 tokens on a trivial prompt, more as difficulty
+          // grows) while minimal/medium/xhigh/max and an omitted field all force
+          // the heavy profile (~470–535 full-size, ~220–350 Flash).
           "id": "zai-org/GLM-5.3",
           "reasoning": true,
           "thinkingLevelMap": {

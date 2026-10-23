@@ -5,16 +5,15 @@
     "npm:@johansja/pi-permission-gate",
     "npm:@cortexkit/pi-magic-context"
   ],
-  "defaultProvider": "bitdeerai",
-  "defaultModel": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+  "defaultProvider": "aigw",
+  "defaultModel": "claude-sonnet",
   "permissionGate": {
-    "model": "bitdeerai/zai-org/GLM-5.3-Flash",
-    "reasoningEffort": "high",
+    "model": "aigw/claude-haiku",
     "blockLevel": "medium",
     "maxTokens": 32000
   },
   "autoSessionName": {
-    "model": "bitdeerai/zai-org/GLM-5.3-Flash"
+    "model": "aigw/claude-haiku"
   },
   "defaultThinkingLevel": "max",
   "retry": {
@@ -39,9 +38,7 @@
   "autocompleteMaxVisible": 10,
   "quietStartup": false,
   "enabledModels": [
-    "bitdeerai/moonshotai/Kimi-K3",
-    "bitdeerai/deepseek-ai/DeepSeek-V4.1-Flash-1017",
-    "bitdeerai/zai-org/GLM-5.3",
-    "bitdeerai/zai-org/GLM-5.3-Flash"
+    "aigw/claude-sonnet",
+    "aigw/claude-haiku"
   ]
 }

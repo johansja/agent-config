@@ -33,6 +33,49 @@
 // is speed-bound, whatever maxTokens says: ≈50K tokens at ~85 tok/s (K3),
 // ≈90K at ~150 tok/s (DS-V4.1-Flash-1017). Raise the gateway timeout before raising any
 // maxTokens.
+//
+// The aigw provider below is a different service: the AI Gateway (LiteLLM in
+// front of AWS Bedrock, ap-southeast-1, global.* cross-region inference
+// profiles). It is the only route to company Claude models — the api-inference
+// pool above serves open models only. Aliases map to:
+//   claude-opus     → global.anthropic.claude-opus-5-5               (current)
+//   claude-sonnet   → global.anthropic.claude-sonnet-5-5             (current)
+//   claude-sonnet-5 → global.anthropic.claude-sonnet-5               (pinned, 64K out)
+//   claude-haiku    → global.anthropic.claude-haiku-4-5-20251001-v1:0 (a generation behind Haiku 5.5)
+// Read those from GET /model/info, not from the Confluence user guide — that
+// page still names Sonnet 5 for claude-sonnet; the gateway serves 5.5.
+//
+// aigw compat facts, probe-verified against the live endpoint:
+// - thinking.adaptive.block_binding is rejected ("Extra inputs are not
+//   permitted"), the same failure class as Claude Code's context_management
+//   error against this gateway. compat.supportsMidConvoEffort therefore stays
+//   false even though the vendor models support managed mid-conversation effort
+//   — pi emits block_binding only when that flag is on. forceAdaptiveThinking
+//   alone produces the accepted shape: thinking {type: adaptive, display} plus
+//   output_config {effort}.
+// - anthropic-beta headers are not validated: unknown betas, including a
+//   deliberately bogus one, return 200. No header suppression needed.
+// - Budget-based thinking is silently ignored on the 5.x models (zero thinking
+//   tokens, no thinking block) and honored on Haiku 4.5 — hence Haiku alone
+//   omits forceAdaptiveThinking. Thinking-off is why the 5.x entries map off to
+//   null: Opus 5.5 rejects thinking {"type": "disabled"} outright ("Use
+//   adaptive and output_config.effort") and Sonnet 5.5 answers it with a 400
+//   demanding {"type": "between_tools"}; an unmapped level makes pi clamp off up
+//   to a supported one instead of sending either.
+// - Haiku 4.5 rejects a tool that carries both eager_input_streaming and strict
+//   ("tools.0.custom.eager_input_streaming: Extra inputs are not permitted"); the
+//   5.x models accept both. supportsEagerToolInputStreaming:false is the fix —
+//   strict tool use survives, and the fine-grained-tool-streaming beta it swaps
+//   in costs nothing since betas are unvalidated.
+// - The gateway creates a 1h ephemeral prompt cache with no cache_control marker
+//   in the request, so usage reports the cached remainder rather than the prompt:
+//   a ~370K-token probe returned input_tokens 4 with cache_creation_input_tokens
+//   370980. pi-ai maps cache_creation to cacheWrite (and the nested ephemeral_1h
+//   count to cacheWrite1h), so cost stays honest — but the promptCache tiers
+//   above buy nothing here.
+// - cost is vendor list price. The gateway's /model_group/info still bills
+//   claude-opus at Opus-5 rates ($5/$25 against $4/$20), so its chargeback
+//   report and pi's footer can disagree.
 {
   "$schema": "https://pi.dev/schemas/models.schema.json",
   "providers": {
@@ -173,6 +216,137 @@
             "supportsDeveloperRole": false,
             "supportsReasoningEffort": true,
             "requiresReasoningContentOnAssistantMessages": true
+          }
+        }
+      ]
+    },
+    "aigw": {
+      "baseUrl": "https://aigw.bitdeer.vip",
+      "api": "anthropic-messages",
+      "apiKey": "$AIGW_API_KEY",
+      "models": [
+        {
+          "id": "claude-opus",
+          "name": "Claude Opus 5.5",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "contextWindow": 1000000,
+          "maxTokens": 128000,
+          "promptCache": {
+            "short": 300,
+            "long": 3600
+          },
+          "cost": {
+            "input": 4,
+            "output": 20,
+            "cacheRead": 0.2,
+            "cacheWrite": 5
+          },
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "compat": {
+            "forceAdaptiveThinking": true,
+            "supportsStrictTools": true,
+            "supportsTemperature": false
+          }
+        },
+        {
+          "id": "claude-sonnet",
+          "name": "Claude Sonnet 5.5",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "contextWindow": 1000000,
+          "maxTokens": 128000,
+          "promptCache": {
+            "short": 300,
+            "long": 3600
+          },
+          "cost": {
+            "input": 2,
+            "output": 10,
+            "cacheRead": 0.1,
+            "cacheWrite": 2.5
+          },
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "compat": {
+            "forceAdaptiveThinking": true,
+            "supportsStrictTools": true,
+            "supportsTemperature": false
+          }
+        },
+        {
+          "id": "claude-sonnet-5",
+          "name": "Claude Sonnet 5",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "contextWindow": 1000000,
+          "maxTokens": 64000,
+          "promptCache": {
+            "short": 300,
+            "long": 3600
+          },
+          "cost": {
+            "input": 2,
+            "output": 10,
+            "cacheRead": 0.2,
+            "cacheWrite": 2.5
+          },
+          "thinkingLevelMap": {
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "compat": {
+            "forceAdaptiveThinking": true,
+            "supportsStrictTools": true
+          }
+        },
+        {
+          "id": "claude-haiku",
+          "name": "Claude Haiku 4.5",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "contextWindow": 200000,
+          "maxTokens": 64000,
+          "promptCache": {
+            "short": 300,
+            "long": 3600
+          },
+          "cost": {
+            "input": 1,
+            "output": 5,
+            "cacheRead": 0.1,
+            "cacheWrite": 1.25
+          },
+          "compat": {
+            "supportsEagerToolInputStreaming": false,
+            "supportsStrictTools": true
           }
         }
       ]

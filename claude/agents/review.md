@@ -2,7 +2,7 @@
 name: review
 description: Review specialist for quality and security analysis
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: opus
 ---
 
 <!-- magic-context: skip -->

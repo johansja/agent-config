@@ -28,7 +28,7 @@ agent-config/
 │       └── review.md          # review subagent (body shared across agents; frontmatter differs per schema)
 └── claude/                    # Claude Code-specific artifacts
     └── agents/
-        └── review.md          # review subagent (body shared across agents; Claude frontmatter — PascalCase tools, model: inherit)
+        └── review.md          # review subagent (body shared across agents; Claude frontmatter — PascalCase tools, model: opus)
 ```
 
 `.pi/workflow/` (pi's live session state) rides with the repo but is gitignored and not deployed.
@@ -138,15 +138,13 @@ Reinstall sources:
 
 | Skill | Source |
 |---|---|
-| vercel-react-best-practices, vercel-composition-patterns, web-design-guidelines | Vercel Engineering |
-| gpu-operator, kai, nvsentinel, network-operator | NVIDIA (network-operator via `k8s-launch-kit`) |
+| gpu-operator, kai, nvsentinel | NVIDIA |
 | show-me | [humanlayer/skills](https://github.com/humanlayer/skills) (`skills-lock.json`) |
-| orca-cli, orchestration, computer-use | Orca toolchain |
+| orca-cli | Orca toolchain |
 | herdr | Herdr toolchain |
 | search-company-knowledge | Atlassian MCP |
 | powerpoint | custom (possibly skills.sh) |
 | infra | `~/projects/infra-skill` (Bitdeer AI Cloud reference) |
-| shadcn | shadcn/ui toolchain (possibly skills.sh) |
 
 ## Magic Context (shared)
 

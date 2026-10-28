@@ -134,6 +134,12 @@ additionally holds vendored third-party skill directories not versioned here.
 Claude Code reads only `~/.claude/skills/` (no native `~/.agents/skills/`
 support — [anthropics/claude-code#66352](https://github.com/anthropics/claude-code/issues/66352)),
 so every skill — repo-owned and vendored — also needs a symlink there.
+Hermes reads `~/.agents/skills/` through `skills.external_dirs`
+(`hermes config set skills.external_dirs '["~/.agents/skills"]'`), so a new skill
+needs no Hermes-side step. Hermes's background review still patches skills in place
+there — its edits land in this repo as an uncommitted diff to review, not in a
+private copy. A same-named skill under `~/.hermes/skills/` shadows the shared one;
+keep none there.
 Reinstall sources:
 
 | Skill | Source |

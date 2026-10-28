@@ -18,6 +18,12 @@ Resolve to a **pinned fetch instruction** that the subagents will run themselves
 - Run the delta once to detect emptiness. **Empty delta → stop before spawning**: report "no changes since last reviewed head `<sha>`; prior findings stand" and re-offer the prior verdict.
 - Prior findings: this session's earlier report, else the last posted note. Each axis's findings go into that axis's subagent brief (§4) as verify-resolved-or-still-present.
 
+**GitLab mechanics** (self-hosted):
+- Run `glab` from inside the repo checkout, with no `--hostname` flag (`glab mr` subcommands reject it). Outside a repo, glab defaults to gitlab.com.
+- Get the head SHA from `glab api projects/<url-encoded-path>/merge_requests/<id>` (`diff_refs.head_sha`).
+- `git fetch origin <source-branch>` pins that SHA locally. Tell subagents to read full files with `git show <sha>:<path>`. If they need to run tests, have them use a detached worktree in `$TMPDIR`. Never check out over the user's working branch.
+- A fetch, or a python `-c` call, may hit an approval prompt that times out unanswered. Ask the user to approve once, rather than rephrasing the command.
+
 Emit the pinned instruction, e.g. `glab mr diff 4123` or `git diff <sha>~1 <sha>`, and pass it to each subagent in §4.
 
 ## 2. Pick axes
@@ -57,5 +63,9 @@ One message, N+1 subagent calls. Each `review` subagent is a thin legwork review
 ## 5. Aggregate
 
 Lead with `## Changes` — one or two lines: files touched + net behaviour. Then `## Motivation` — why the change exists, quoted from the spec source (MR/PR desc captured in §1, else the Spec subagent's `Spec quote:`); `undetermined` when no spec source exists — never infer intent from the diff. Then `## Impact` as reported by its subagent. Then each axis under its `## <Axis>` heading. End each axis with one line: total findings + worst issue (if any). Final `## Verdict` — single line: `PASS` or `FAIL`; FAIL if any Standards hard violation, any Spec finding, or any Critical, else PASS; one short clause of reason. **Do not merge or rerank across axes.**
+
+**Aggregation hygiene:** subagents report severity without always verifying it. If a subagent's own analysis undercuts its Critical (e.g. "nothing is double-applied"), say so in the report. Flag "unconfirmed" Criticals as questions for the author, with the exact thing to check. Do not silently downgrade, and do not rerank across axes. Also say when reviewers ran no tests.
+
+**Posting** (only when the user says to post): write the report to a file with an absolute path (the shell's `$TMPDIR` can differ from the file-tool scratch dir; verify `cat` is non-empty before posting). Then run `glab mr note <id> -m "$(cat <file>)"`. Keep the `Reviewed head:` line in the comment, since re-reviews anchor on it.
 
 End the report with `Reviewed head: <head sha>` — the SHA this round reviewed; the anchor a later re-review resolves from. Re-review rounds: scope `## Changes` to the delta and state which prior findings resolved vs still open.

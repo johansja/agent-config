@@ -9,7 +9,7 @@ A ticket is a sticky note for someone who was not in the session. Agent-written 
 
 1. **Search first.** Query the summary keywords and the epic's children (`parent = <EPIC>`, open and closed). A near-match means update or link, not create.
 2. **Summary:** one clause, ≲80 chars, the observable problem or outcome. No `⇒` chains, no "X — Y" double titles, no implementation detail. Keep the reporter's language.
-3. **Body** — bold lead-ins on their own lines (Markdown `##` headings are stripped on conversion to Jira's format and sections run together). Target one screen.
+3. **Body** — bold lead-ins each followed by a blank line (Markdown `##` headings are stripped on conversion to Jira's format, and a lead-in with a single newline merges into the next line as `**Goal**Text`). Target one screen.
    - Bug: `**Problem**` (what the user sees) · `**Expected**` · `**Repro**` (numbered; env and ids) · `**Impact**` · `**Done when**`.
    - Task/Story: `**Goal**` (one sentence) · `**Scope**` · `**Out of scope**` · `**Done when**` (observable) · `**Depends on**`.
 4. **Strip session cruft** (run `cruft-hygiene`'s patterns on the draft): agent/Kanban card ids, local paths (`~/projects/…`, `.local/…`), plan-step refs (`Plan ref: X-B1`), unexplained question codes (`Q22`), lines addressed to agents ("agents read this", "an agent must not…"), "created as the replacement for…" provenance. Relationships go in issue links, not prose.

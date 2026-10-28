@@ -5,8 +5,10 @@ description: Capture a lesson when a correction, wrong assumption, or gotcha sur
 
 Surface every lesson as a diff; wait for "yes" before writing. First occurrence is enough — no count-to-N (the agent has no cross-session tally). Capture what the user asked on "remember/note/record this". One-off fixes and preferences are not lessons.
 
+Project-level recall may already be automatic: when a memory system with a retrospective is active (Magic Context's `retrospective` task), let it record project lessons; use this skill for durable rules the user asks to record and for always-on global boundaries. Do not write the same lesson to both.
+
 Before proposing, grep the target file and refine an existing heading over adding a new one. Write reusable rules, not in-flight task state.
 
-Scope by failure mode, not topic: project AGENTS.md is the default (repo conventions, tooling, env, domain); `agent-config/global/AGENTS.md` is for agent-behavior failure modes recurring across codebases (e.g. "agent claims tests pass without running them").
+Scope by failure mode, not topic: project AGENTS.md is the default for durable rules (repo conventions, tooling, env, domain); `agent-config/global/AGENTS.md` is for agent-behavior failure modes recurring across codebases (e.g. "agent claims tests pass without running them"). The agent has no cross-session tally: do not claim recurrence without user evidence or a retrospective/memory search.
 
 Show the target file, the diff, and any related lines grep found. One or two concrete lines — commands, env, gotchas — no platitudes. More than 15 under one heading → propose consolidation. Contradiction → retire the stale line. Rejected proposals may re-surface; no rejection log.

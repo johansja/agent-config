@@ -31,4 +31,15 @@ Pre-fetch the evidence before asking:
 
 Then open round 1 with the existence question, the evidence, and a recommended verdict: **proceed** (restating the why), **descope**, **defer**, or **kill**. The verdict is the user's; requirement and solution-shape grilling proceed only on proceed or descope. On kill or defer, propose closing or de-prioritising the item where it lives; on descope, propose trimming its source; execute any write-back only on the user's yes.
 
+## Running the rounds
+
+- **Look up facts, ask decisions.** If the user says "I already answered that", you asked a fact you should have read, or re-asked a settled item.
+- **Open each round with what is settled**, then only the questions the last answers opened. Record only what the user answered; a skipped question stays open.
+- **Test proposed rules against the real data** and report the counts each would produce, before the user discovers the noise.
+- **Write questions a skimmer can answer:** plain words, no internal codes, one-clause consequence per option. On "eli5", re-explain with an analogy and keep the recommendation.
+- **"Overkill / simpler?" gets the deletion pass out loud:** keep/cut per component, with the requirement that dies if cut.
+- **When challenged, re-derive on the merits** and reverse if the simpler option wins. "Whichever is cleaner" delegates the choice: pick it and mark it settled.
+- **Surface conflicts** between an answer and a standing rule as a question. Never attribute a gate or rule to the user that they did not state.
+- **Inventory / research subjects:** `references/inventory-research-subjects.md`. **Meeting-board subjects:** `references/meeting-board-usefulness.md`.
+
 The session is done when the frontier is empty: every branch visited, nothing left silently assumed. Do not act until the user confirms shared understanding.

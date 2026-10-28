@@ -134,12 +134,17 @@ additionally holds vendored third-party skill directories not versioned here.
 Claude Code reads only `~/.claude/skills/` (no native `~/.agents/skills/`
 support — [anthropics/claude-code#66352](https://github.com/anthropics/claude-code/issues/66352)),
 so every skill — repo-owned and vendored — also needs a symlink there.
-Hermes reads `~/.agents/skills/` through `skills.external_dirs`
-(`hermes config set skills.external_dirs '["~/.agents/skills"]'`), so a new skill
-needs no Hermes-side step. Hermes's background review still patches skills in place
-there — its edits land in this repo as an uncommitted diff to review, not in a
-private copy. A same-named skill under `~/.hermes/skills/` shadows the shared one;
-keep none there.
+Hermes reads the shared skills through `skills.external_dirs`. It should point at
+`~/.agents/skills/`, but Hermes's skill editor does not follow the symlinks there
+(listing does), so self-maintenance edits fail with "not found". Until that is fixed,
+point it at the link targets instead:
+`hermes config set skills.external_dirs '["~/projects/agent-config/skills", "~/projects/infra-skill", "~/.hermes/vendored-skills"]'`,
+where `~/.hermes/vendored-skills/` holds one symlink per vendored skill directory.
+Hermes patches these skills in place; a nightly Hermes cron job (`skill-commit`)
+commits and pushes the files its edits touched, and a weekly one (`skill-trim`)
+runs a deletion pass. Vendored skill directories are `chmod a-w` so their lessons
+land elsewhere; `chmod -R u+w` one before its installer updates it. A same-named
+skill under `~/.hermes/skills/` shadows the shared one; keep none there.
 Reinstall sources:
 
 | Skill | Source |

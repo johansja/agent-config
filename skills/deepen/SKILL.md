@@ -14,4 +14,6 @@ Rewrite along four questions:
 
 Range-check the rewrite: state the goal as a verb, not a noun (not "a CSV export" but "analysts move this data into their tools"), and borrow the methods of adjacent fields where they beat the surface framing. Do what the expert does; never role-play the expert.
 
+Read the code paths the change touches (composition root, constructors, config loaders, generated-file gates, deploy wiring) before rewriting — the best findings live there: a shared instance that must be split, a startup path that fails on a missing optional input, generated files that must be regenerated. Present: goal as a verb, numbered build steps, the outside judges (tests, generators, verify scripts, live check), and a keep/cut table for the simplify pass with the requirement that dies per cut. Flag anything the user must do by hand (secrets, manual tracker edits).
+
 Show the rewritten task to the user before implementing; they can veto. A rewrite that changes what is built — not how well it is built — is a grilling-level scope change: take it back to the user as a question instead of absorbing it.

@@ -31,6 +31,18 @@ Pre-fetch the evidence before asking:
 
 Then open round 1 with the existence question, the evidence, and a recommended verdict: **proceed** (restating the why), **descope**, **defer**, or **kill**. The verdict is the user's; requirement and solution-shape grilling proceed only on proceed or descope. On kill or defer, propose closing or de-prioritising the item where it lives; on descope, propose trimming its source; execute any write-back only on the user's yes.
 
+## Resuming a subject
+
+When the user says "continue on <ticket/topic>", rebuild state from evidence before round 1: search past sessions for the identifier, re-read the tracker item (comments, link graph, status), and check the worktree (`git status`, branch vs develop, grep the code for the symbols the ticket names). Tracker text goes stale after merges and closed siblings, so open with a short "what is already true" list and only ask what that leaves open.
+
+## Closing the grill
+
+When the frontier is empty, restate the settled decisions as one numbered table (decision per row, including answers the user amended) and ask for the go-ahead. The usual next steps are `deepen`, then `simplify`'s deletion pass on the plan, then implement; if an amended answer makes tracker text wrong, list those edits in the plan.
+
+## Steers after the go-ahead
+
+A mid-implementation message that changes a settled decision (drops a mechanism, moves a trust boundary, widens scope) re-opens the frontier. Do not absorb it into the running work: read the code that decision touches, say what it removes and what depends on it, ask the new questions with recommendations (how far it goes, which change/MR carries it, what happens meanwhile), and keep going only on parts the steer does not touch. Write-backs to the tracker wait for the new answers.
+
 ## Running the rounds
 
 - **Look up facts, ask decisions.** If the user says "I already answered that", you asked a fact you should have read, or re-asked a settled item.

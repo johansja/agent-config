@@ -71,32 +71,17 @@ The report is a record, not a victory lap: an engineer must be able to reconcile
 - **Carry-forward needs re-verification.** "Earlier filing stands" asserts a check nobody performed — either re-read the log and say what you saw, or write `not re-verified`.
 - **No Put Back.** A raw `os.rename` into `~/.Trash` creates no Finder *Put Back* entry, so the undo log is the only recovery path — state that wherever you claim the trash is reversible.
 
-## Case study — Pencen (the mistake that wrote these rules, Oct 2026)
+## Worked example — in-flight application
 
-The first sweep classified by document type: marriage cert + bank account → `IDs & Certs`, JPA forms → `Financial`, and proposed retiring `01 Projects/Pencen`. **Wrong.** Johan corrected it: all files belong together in `01 Projects/Pencen` — he is actively processing his late father's pension transfer application and needs the working set intact every time he sits down to it.
-
-What this case teaches:
-- "Marriage cert" is not inherently a Resource — a cert **inside an in-flight application** is Project material
-- The test is not "what kind of file is this?" but "when Johan next works on this, does he need it together with the others?"
-- `01 Projects/Pencen` stays whole until the application completes; then the folder archives to `04 Archives` intact
-- Family cert vault (`03 Resources/IDs & Certs`) holds settled reference: `Sunny Sim Jian Ho - MyKad.pdf` stays there unless Johan says it's part of the application set
+A marriage cert, bank statement and application forms belong together in `01 Projects/<application>` (an active paperwork process) — not split into `IDs & Certs` / `Financial`. The test is "when the human next works on this, do they need it together with the others?", not the file's type. The folder stays whole until the application completes, then archives intact. Certs outside the application set stay in `03 Resources/IDs & Certs`.
 
 ## Notes for agents
 
-- On file-provider Macs, directory listings can show entries that fail `open`/`mv` with phantom ENOENT (encoding mismatch or dataless limbo). Retry file operations with globs (`mv ~/Downloads/Screenshot*09-01*.png …`) and materialize first (`brctl download <path>`); do not conclude a file is missing from one failed literal-path call
-
-- **Dataless placeholders are the default state of the PARA tree on this Mac.** Expect `Resource deadlock avoided` (EDEADLK) on open/`cp`/`shasum`/`mv` and an empty-file hash from `shasum`. Fix: `brctl download "<path>"` then **poll until the dataless flag clears** (`ls -lO "$f" | grep dataless`) — usually 3–6 s, not instant. `cp` before the flag clears silently writes a 0-byte file, which then hashes as the empty-file digest and fabricates false "duplicate" conclusions. Always confirm `ls -l` size > 0 *and* the flag is gone before trusting a hash.
-
-- **A wedged namespace is a different failure from a dataless file.** First suspicion must be **filename bytes, not filesystem damage**: macOS screenshot/recording names contain U+202F (narrow no-break space) between time and AM/PM, so a path typed by hand fails with ENOENT, `mv` reports EDEADLK, `rm -f` exits 0 while the entry survives, and `brctl download` says "doesn't exist" or "permission to view it" — all while `ls` and `find` happily list the file. Check with `python3 -c "import os;print([repr(n) for n in os.listdir(PATH)][:3])"` before concluding anything is corrupt. Build every path from `os.listdir()`/`readdir` output — never from what you see on screen or from shell expansion of a typed name.
-
-- To act on evicted items, per file and in this order: `brctl download <exact path>`, then poll `os.lstat(p).st_flags & 0x40000000` until it clears (usually <3 s after the request, not before), then rename. Renaming a dataless file across directories returns EDEADLK; renaming it to ~/.Trash after materialization succeeds. Same-directory renames work even while dataless — useful as a non-destructive probe.
-
-- `~/.Trash` is TCC-protected: listings and `du` return EPERM even for the user's own session. Verify a trash action by the source disappearing plus a successful `os.rename` return, not by reading `~/.Trash`.
-
-- Clearing `00 Inbox/.trash-pending` double-logs: items already moved there earlier in the same run appear once for the move into pending and again for the clear to `~/.Trash`. Count distinct source paths, not log lines, when balancing.
-
-- Bulk-trashing ~46 Desktop files is one approved decision, but move each into `~/.Trash` individually — `mv ~/Desktop/* ~/.Trash/` aborts the whole batch on the first EDEADLK and leaves the rest in place with no per-file record.
-
-- This skill is repo-synced (`github.com/johansja/agent-config`); keep edits in the repo's normal review flow
-- Nothing here schedules itself: the calling agent owns cadence, triggers, and the approval channel
+- A listing can show entries that fail `open`/`mv` with phantom ENOENT. Retry with globs (`mv ~/Downloads/Screenshot*09-01*.png …`) and materialize first; one failed literal-path call does not mean the file is missing.
+- **Dataless placeholders are the default state of the PARA tree.** Symptoms: `Resource deadlock avoided` (EDEADLK) on open/`cp`/`shasum`/`mv`, and an empty-file hash. Fix per file: `brctl download "<exact path>"`, then poll until the flag clears (`ls -lO "$f" | grep dataless`, or `os.lstat(p).st_flags & 0x40000000`; usually 3–6 s), then act. `cp` before that writes a 0-byte file that hashes as the empty digest and fabricates false duplicates — confirm size > 0 *and* flag gone before trusting a hash. Cross-directory renames of dataless files return EDEADLK; same-directory renames work (a non-destructive probe).
+- **A wedged namespace is a different failure: suspect filename bytes first.** macOS screenshot/recording names contain U+202F (narrow no-break space) before AM/PM, so hand-typed paths fail with ENOENT/EDEADLK, `rm -f` exits 0 while the entry survives, and `brctl` says "doesn't exist" — while `ls` and `find` list the file. Inspect with `python3 -c "import os;print([repr(n) for n in os.listdir(PATH)][:3])"`, and build every path from `os.listdir()` output, never from typed or on-screen names.
+- `~/.Trash` is TCC-protected (EPERM on listing/`du`). Verify a trash action by the source disappearing plus a successful `os.rename`.
+- Clearing `00 Inbox/.trash-pending` double-logs items moved there earlier in the run; when balancing, count distinct source paths, not log lines.
+- Trash bulk batches one file at a time (`os.rename` each); `mv ~/Desktop/* ~/.Trash/` aborts on the first EDEADLK and leaves no per-file record.
+- Nothing here schedules itself: the calling agent owns cadence, triggers, and the approval channel.
 - On corporate machines, keep personal data out of examples and confirm local IT policy allows an agent to move files before first run

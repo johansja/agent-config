@@ -21,6 +21,8 @@ Done when: the summary passes step 2, the body has the lead-ins from step 3, a c
 
 ## What goes elsewhere
 
+- **Tickets an agent will execute** need the same body plus four things a human colleague infers: the environment where the fix is verified and what the check needs (credentials, a second tenant); what "done" ends in (merged, deployed to test, verified, or handed to a reporter); the commit or date the premise was last checked against the default branch, because stale premises were the commonest agent-ticket failure; and who owns it and which status it ends in. Published guidance from Atlassian and GitHub agrees on outcomes, in/out scope, constraints, prior decisions, verifiable acceptance criteria and one responsibility per ticket; it is vendor-written, so treat its claimed gains as unmeasured.
+- **A grooming sweep over existing tickets** is read-only first: restructure what exists, turn gaps into explicit questions, never fill in plausible but unverified facts, keep the ticket's language (do not translate Chinese tickets), keep the original text in a comment when replacing a description, and suggest instead of editing tickets assigned to others. Score against concrete yes/no items (has acceptance criteria, names the environment), not "is it clear", and batch about eight tickets per card.
 - **Research or an option survey** (prior art, options A–E, many links) → an ADR or research doc in the repo. The ticket keeps the question, the link and the close criterion ("decision recorded in ADR-NNN").
 - **A list of independent questions** → one ticket per question, or a checklist ticked item by item. A bundle cannot close until its last answer lands.
 

@@ -34,13 +34,19 @@ Long PDFs blow context. Pass `-f/-l` (pdftotext), `-dFirstPage/-dLastPage` (gs),
 
 ## Scanned / image-only — surface, don't OCR silently
 
+Quick tell before extracting: if `pdffonts file.pdf` lists no fonts, there is no text layer (typical of a browser "Print to PDF" of a viewer page), and extraction will return ~0 chars.
+
 After extraction, check yield. If the result is empty or under ~100 chars per page extracted, **stop and report**:
 
 > Text extraction returned ~N chars from P pages — this PDF looks scanned or image-only. Options: (a) render pages to PNG and read via the vision-capable read tool, (b) OCR with `tesseract` if installed, (c) try a different page range. Which?
 
-Execute the user's pick; do not auto-fallback.
+Execute the user's pick; do not auto-fallback. Exception: when the user's request can't be done without the document's full content (e.g. a workflow that must read a resume), proceed with (a) and state in the final report that the text came from page images, so exact figures should be spot-checked.
 
-Render for option (a): `gs -sDEVICE=png16m -r150 -dFirstPage=N -dLastPage=M -sOutputFile=page-%d.png file.pdf`, then read the PNGs.
+Render for option (a): `gs -sDEVICE=png16m -r150 -dFirstPage=N -dLastPage=M -sOutputFile=page-%d.png file.pdf` (or `pdftoppm -r 200 -png file.pdf out/p`), then read the PNGs.
+
+- **Non-Latin text (Chinese/Japanese/Korean): use vision, not tesseract**, unless `tesseract --list-langs` shows the language pack (e.g. `chi_sim`) — an English-only tesseract turns CJK into confident-looking garbage.
+- **Dense pages: read in crops.** A full-page vision read of a text-dense page comes back summarized or cut off; read each page in 2–3 overlapping crops (e.g. top/bottom halves) and ask for verbatim, complete text with no commentary.
+- Delete the rendered PNGs when done if the document is sensitive (resumes, HR data).
 
 ## Encrypted PDFs
 

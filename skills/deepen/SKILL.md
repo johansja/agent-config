@@ -17,3 +17,7 @@ Range-check the rewrite: state the goal as a verb, not a noun (not "a CSV export
 Read the code paths the change touches (composition root, constructors, config loaders, generated-file gates, deploy wiring) before rewriting — the best findings live there: a shared instance that must be split, a startup path that fails on a missing optional input, generated files that must be regenerated. Present: goal as a verb, numbered build steps, the outside judges (tests, generators, verify scripts, live check), and a keep/cut table for the simplify pass with the requirement that dies per cut. Flag anything the user must do by hand (secrets, manual tracker edits).
 
 Show the rewritten task to the user before implementing; they can veto. A rewrite that changes what is built — not how well it is built — is a grilling-level scope change: take it back to the user as a question instead of absorbing it.
+
+Put the scope-changing questions **first** in the presentation, then the build steps, the judges and the keep/cut table. For a large sweep (dozens of files, several gates), write the full plan to a scratch file and show a compact summary inline. A long inline plan hits the output limit, which cuts off the questions at the end, and those are the only part that needs the user's answer.
+
+Read the live system as well as the code when the change alters what runs: what the test cluster actually pulls and mounts, and which secrets and repository objects exist. A plan built only from the repo misses state that another team or an earlier manual step created.

@@ -87,13 +87,11 @@ Environment variables override settings.json:
 
 **Test:** `node --test pi/auto-session-name.test.mjs`
 
-### notify-cmux / notify-herdr / notify-orca / notify-osc
+### notify-herdr / notify-osc
 
 Blocked-state consumers, one file per transport: each subscribes pi's
 `ui_prompt_start`/`ui_prompt_end` and translates blocking prompts into its
 host's waiting-for-user signal. No-op outside its host.
-
-**Test:** `node --test pi/notify-orca.test.mjs`
 
 ### read-pdf-tool
 
@@ -108,9 +106,7 @@ the `read-pdf` skill's chain; on pi the skill defers to this tool.
 ### Vendor-managed extensions (not in this repo)
 
 `~/.pi/agent/extensions/` also holds files installed and upgraded in place by
-their tools — `cmux-session.ts` (cmux), `herdr-agent-state.ts` (herdr),
-`orca-{agent-status,prefill,titlebar-spinner}.ts` (Orca), `emdash-hook.ts`
-(emdash). Their tools overwrite them on upgrade — never edit or absorb them.
+their tools — `herdr-agent-state.ts` (herdr). Their tools overwrite them on upgrade — never edit or absorb them.
 They cover session lifecycle; the blocked-state seam belongs to `notify-*`.
 
 `@cortexkit/pi-magic-context` is a package-installed extension (declared in
@@ -151,7 +147,6 @@ Reinstall sources:
 |---|---|
 | gpu-operator, kai, nvsentinel | NVIDIA |
 | show-me | [humanlayer/skills](https://github.com/humanlayer/skills) (`skills-lock.json`) |
-| orca-cli | Orca toolchain |
 | herdr | Herdr toolchain |
 | search-company-knowledge | Atlassian MCP |
 | powerpoint | custom (possibly skills.sh) |
@@ -200,7 +195,7 @@ prompts at startup, so restart both once after the install steps.
 
 `pi/config/models.json` and `pi/config/mcp.json` are symlinked into `~/.pi/agent/` (mcp.json via `~/.config/mcp/mcp.json`) — both are hand-edited only. `pi/config/settings.json` is **copy-deployed**, never symlinked: pi writes runtime state into it (`lastChangelogVersion` on every upgrade, `/theme` and model-toggle changes), and with the repo on several machines that state would masquerade as shared config — see [ADR 0002](docs/adr/0002-settings-machine-local-deployment.md). Editing shared defaults = edit the tracked file, re-copy, `/reload`.
 
-`mcp.json` is secret-free: the `notify-service` bearer token is interpolated as `${BITDEER_NOTIFY_MCP_TOKEN}` (pi supports env expansion in `headers`); the value lives in `~/.config/fish/config.fish`.
+`mcp.json` is secret-free: the `notify-service` bearer token is interpolated as `${BITDEER_NOTIFY_MCP_TOKEN}` (pi supports env expansion in `headers`); the value lives in `~/.zshrc`.
 
 Deliberately not versioned: `pi-permissions.jsonc`, `ship-reviewers.json`, and `trust.json` (pi-local; machine/team-specific or auto-regenerated), and `auth.json` / `mcp-auth.json` (credentials — never commit). The `go-deps-update` skill is also pi-local.
 
@@ -278,7 +273,7 @@ ln -sf "$PWD/config/magic-context.jsonc" ~/.config/cortexkit/magic-context.jsonc
 # MCP config → ~/.config/mcp/ (pi's ~/.pi/agent/mcp.json symlinks here)
 ln -sf "$PWD/pi/config/mcp.json" ~/.config/mcp/mcp.json
 # notify-service's bearer token is interpolated from the environment
-# (BITDEER_NOTIFY_MCP_TOKEN in ~/.config/fish/config.fish) — set it before
+# (BITDEER_NOTIFY_MCP_TOKEN in ~/.zshrc) — set it before
 # enabling that server.
 
 # Global rules → ~/.pi/agent/AGENTS.md, ~/.config/opencode/AGENTS.md, ~/.claude/CLAUDE.md

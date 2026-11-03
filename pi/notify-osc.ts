@@ -5,8 +5,6 @@
  * ctx.ui prompt (select/confirm/input/editor/custom: permission gates,
  * questionnaires, any extension UI) — and fires OSC 99 (Kitty) / OSC 777
  * (Ghostty, iTerm2, WezTerm, rxvt-unicode) terminal notifications on open.
- * No-op under cmux — `notify-cmux.ts` owns the cmux surface so OSC and cmux
- * don't double-fire. Outside cmux, OSC is the only terminal notification.
  *
  * Split from the former `notify.ts` (one consumer per transport).
  */
@@ -29,9 +27,6 @@ function notifyOsc(title: string, body: string): void {
 
 export default function (pi: ExtensionAPI): void {
 	pi.on("ui_prompt_start", (event) => {
-		// cmux owns the cmux surface (notify-cmux.ts fires `cmux notify`). No-op
-		// here so the two don't double-fire; outside cmux OSC is the only path.
-		if (process.env.CMUX_SURFACE_ID) return;
 		notifyOsc("Pi", event.title ?? "Awaiting input");
 	});
 }

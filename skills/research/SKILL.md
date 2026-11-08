@@ -3,7 +3,7 @@ name: research
 description: Use when researching or comparing tools against primary sources. Fan out, cite, synthesize.
 ---
 
-Spin up a `general` subagent to do the research, so you keep working while it reads. Multiple research questions blocking a build — fire one subagent each in parallel on throwaway branches, don't park them for a later session.
+Spin up a `general` subagent to do the research, so you keep working while it reads. Several research questions blocking a build → one subagent each, in parallel, on throwaway branches, now rather than in a later session.
 
 Its job:
 
@@ -13,9 +13,8 @@ Its job:
 
 ## Comparing tools / vendors / products
 
-When the user asks for a "deeper / thorough comparison" of named candidates, see `references/tool-comparison.md` for the fan-out procedure, the dimension checklist, and the output shape. Always-on rules:
+For a "deeper / thorough comparison" of named candidates, follow `references/tool-comparison.md` (fan-out, dimension checklist, output shape). Always-on rules:
 
-- One subagent per candidate, all dispatched in a single `delegate_task` call with the **same dimension checklist** in each context, so results line up into one table. Tell each to cite a URL per claim and to list unverified items separately.
-- Respect scope the user set (e.g. "don't go the DIY route", "we don't use it for provisioning") — evaluate candidates only against the job the user actually uses the incumbent for.
-- Lead the answer with a one-line verdict, then a comparison table, then a short per-candidate pros/cons, then a recommendation and an honest caveats line (what couldn't be verified, e.g. unpublished pricing).
-- Earlier quick answers from memory must be labelled as unverified; the deep pass replaces them, and it should say plainly when it overturns an earlier claim.
+- One subagent per candidate, all dispatched in the same turn with the **same dimension checklist**, so results line up into one table.
+- Evaluate candidates only against the job the user actually uses the incumbent for, within the scope they set ("don't go the DIY route").
+- Label earlier quick answers from memory as unverified; the deep pass replaces them and says plainly when it overturns an earlier claim.

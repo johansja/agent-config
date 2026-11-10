@@ -37,7 +37,9 @@ Type rules (apply only to files ruled out as settled reference by 1–2):
 - School letters, portfolios, consent forms, medical reports → `02 Areas/Kids/<child>` (match by name: Esther, Ezra)
 - Installers/archives (`.dmg`, `.pkg`, `.zip`, `.iso`) older than 30 days → TRASH candidate
 - Screenshots/images older than 90 days → dated archive folder, or ASK
-- Candidate resumes/CVs → the hiring repo's `candidates/<date>_<slug>/sources/` (e.g. `~/projects/k8s-interviews`), deduped against existing files first; `03 Resources/Interviews` is for interview-prep reference material only
+- Candidate resumes/CVs → the hiring repo's `candidates/<date>_<slug>/sources/` (e.g. `~/projects/k8s-interviews`), deduped against existing files first; `03 Resources/Interviews` is for interview-prep reference material only. A resume can also be a referral the human submits for someone else (not a candidate they interview) — that one is a DROP once submitted, so confirm which before filing into the hiring repo
+- Credentials (kubeconfigs, tokens, client secrets, robot-account JSON, recovery codes) → never into the PARA tree: it is iCloud-synced plaintext. Propose migrating them to the human's password manager and keeping a local, non-synced working copy where a tool needs one (kubeconfigs → `~/.kube/`); delete the originals only after a read-back hash matches. Re-downloadable credential files in Downloads → DROP
+- Exports the agent itself requested for analysis (e.g. a Google Drive doc exported to Downloads) → DROP; the source of truth lives upstream
 - Re-downloadable or stale one-offs (public installers, versioned scripts, duplicate downloads, completed-travel and expired one-time-use docs) → propose DROP with reasoning
 - Everything unresolved → ASK pile (never guess on ambiguity)
 
@@ -47,6 +49,7 @@ Naming and safety:
 - Move, never delete: deletion is proposal-only — for the explicit TRASH rules above and any DROP proposal; execute after approval. On an iCloud-synced target a trash **is** a deletion: it propagates to every signed-in device and the item sits in iCloud's 30-day Recently Deleted. Say that in the proposal, not after the fact
 - Undo log: one line per action (timestamp, from → to) in `PARA_ROOT/00 Inbox/.sweep-log.md`
 - One file, one decision: if classification needs a judgment call, it goes to the ASK pile
+- Check the destination before proposing a move: if a same-named file already exists there, the item is ASK (replace / keep both / drop) — never let the move silently suffix it (`name 1.md`), which leaves two versions the human must untangle later
 
 ## Procedure
 

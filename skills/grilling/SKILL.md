@@ -55,7 +55,7 @@ Before routing a fix to a ticket, check which side *generates* the artifact. A c
 
 When the frontier is empty, restate the settled decisions as one numbered table (decision per row, including answers the user amended) and ask for the go-ahead. The usual next steps are `deepen`, then `simplify`'s deletion pass on the plan, then implement; if an amended answer makes tracker text wrong, list those edits in the plan.
 
-Before proposing to implement, check that each planned change (each MR, each external ask) already has a tracker item. The user may hand the work to a fresh session, which keeps only what the tracker holds. If any item lacks one, say so and offer to file it with the session's verified facts in its body.
+Before proposing to implement, check which planned changes need a tracker item: work someone else asked for or depends on, work spanning several MRs or sessions, or a deferral. A self-contained change found in the course of the work needs only its MR, whose description is the record; do not file a ticket just to give it a key. If an item that needs one lacks it, say so and offer to file it with the session's verified facts in its body.
 
 ## Steers after the go-ahead
 

@@ -3,7 +3,7 @@ description: "Looping apply-layer over the `code-review` skill (default axes). E
 argument-hint: "[files|commits|range]"
 ---
 
-Apply-layer over the `code-review` skill — run it on `$ARGUMENTS` with `code-review`'s default axes. The `review` subagent can't edit, so fixes happen here, in the main session. Smell/hard-violation distinction: see `code-review` Standards axis.
+Apply-layer over the `code-review` skill — run it on `$ARGUMENTS` with `code-review`'s default axes. The `review` subagent can't edit, so fixes happen here, in the main session. Severity per axis: see `code-review` §4 output contract.
 
 ## Classify
 
@@ -11,8 +11,8 @@ Apply-layer over the `code-review` skill — run it on `$ARGUMENTS` with `code-r
 |------|------|-------|
 | Correctness | Critical, Warning | Suggestion |
 | Security | Critical, Warning (non-HBR) | Suggestion; all HBR regardless of severity |
-| Standards | Hard violations | All smells; tooling-enforced |
-| Spec | (b) scope creep, (c) wrong vs spec | (a) missing/partial spec |
+| Standards | Critical, Warning | Suggestion; tooling-enforced |
+| Spec | Critical, Warning | Suggestion; any fix that is new feature work (missing/partial behavior) |
 
 **HBR carve-out (defer regardless of severity):** `**/auth*`, `**/authz*`, `**/permissions*`, `**/secrets*`, `**/identity*`, `**/*.env*`, `**/config*.{js,ts,json,yaml,yml,toml}`, `**/docker-compose*`, `**/Dockerfile*`, `**/*.tf`, `**/k8s/**`, `**/charts/**`. Also defer diffs touching tokens: `password|secret|token|api_key|apikey|private_key|credential`.
 

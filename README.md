@@ -197,7 +197,7 @@ prompts at startup, so restart both once after the install steps.
 
 `mcp.json` is secret-free: the `notify-service` bearer token is interpolated as `${BITDEER_NOTIFY_MCP_TOKEN}` (pi supports env expansion in `headers`); the value lives in `~/.zshrc`.
 
-Deliberately not versioned: `pi-permissions.jsonc`, `ship-reviewers.json`, and `trust.json` (pi-local; machine/team-specific or auto-regenerated), and `auth.json` / `mcp-auth.json` (credentials — never commit). The `go-deps-update` skill is also pi-local.
+Deliberately not versioned: `pi-permissions.jsonc` and `trust.json` (pi-local; machine/team-specific or auto-regenerated), and `auth.json` / `mcp-auth.json` (credentials — never commit). The `go-deps-update` skill is also pi-local.
 
 ## Scripts (helpers)
 

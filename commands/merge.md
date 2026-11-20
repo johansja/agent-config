@@ -1,12 +1,11 @@
 ---
-description: "Merge the approved MR, transition the Jira ticket to done, and sync the local target branch."
+description: "Close out a merged MR: transition the Jira ticket to done and sync the local target branch."
 argument-hint: "[mr url — default: the current branch's MR]"
 ---
 
-Target: **$ARGUMENTS** — default the open MR for the current branch.
+Target: **$ARGUMENTS** — default the MR for the current branch. GitLab auto-merge does the merge (`/ship` sets it); this command closes out afterwards.
 
-1. `glab mr view`: verify approval and a green pipeline. Either missing → stop, report what's blocking. Run the mootness check (`grilling` skill) against the branch-name ticket via the atlassian MCP (key derivation as in step 4); moot → stop, report; do not merge or transition.
-2. `glab mr merge`. GitLab blocks it (conflict, or the project's merge method demands an up-to-date branch) → merge the MR's target branch in — never rebase, never force-push — push, wait for the pipeline, and go back to step 1 (a push may reset approvals).
-3. Fast-forward the local target branch.
-4. Jira: the ticket key rides in the branch name (`<type>-aic-NNNN`). Via the atlassian MCP list the issue's real transitions; transition to the done-equivalent — prefer "Done"; absent or ambiguous → show the actual transitions and ask.
-5. Report what shipped and recommend the next thing to `/work`.
+1. `glab mr view`: not merged yet → report what it is waiting on (approval, pipeline, unresolved threads, or auto-merge not set — then set it with `glab api -X PUT projects/:id/merge_requests/<iid>/merge -F auto_merge=true`) and stop.
+2. Fast-forward the local target branch.
+3. Jira: the ticket key rides in the branch name (`<type>-aic-NNNN`). Via the atlassian MCP list the issue's real transitions; transition to the done-equivalent — prefer "Done"; absent or ambiguous → show the actual transitions and ask.
+4. Report what shipped and recommend the next thing to `/work`.

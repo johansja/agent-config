@@ -61,7 +61,7 @@ a pi/opencode/Claude Code project.
   judgment is the user's. Mechanics live in the grilling skill.
 - **Mootness check** — the factual half of existence grilling's evidence:
   is the item already done, duplicated, or superseded? Procedure lives in the
-  grilling skill; also re-run at `/gitlab-review` (surfaced) and `/merge`
+  grilling skill; also re-run at `/gitlab-review` (surfaced) and `/ship`
   (gating).
 
 ### Deepen pass (deepen skill ↔ /work lifecycle)

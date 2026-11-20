@@ -28,7 +28,7 @@ Only what a fresh session cannot infer: boundaries that must hold, and taste tha
 
 **Durable artifacts carry the why, not the session that produced it.** Provenance — reviewer tags, round refs, decision date stamps, ticket-pointer phrases — is cut; the decision stays. `cruft-hygiene` is the audit, `/cruft-review` the pre-merge gate.
 
-**Commits follow the repo's convention**, Conventional Commits by default, with no AI attribution trailers unless the project opts in.
+**Commits follow the repo's convention**, Conventional Commits by default.
 
 **T3 Code:** a launchable work item — ticket, MR/PR, markdown file, ad-hoc task — goes through `/work`, never a hand-rolled `t3_thread_launch`.
 

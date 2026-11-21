@@ -46,9 +46,8 @@ and stop.
 <CLAIM/VERDICT>
 
 On proceed: run the deepen pass (`deepen` skill) on the settled task before
-implementing. When implementation lands — run the simplify pass,
-/fix-hard-violations, then /ship. On review comments: /mr-comments. On
-approval: /merge.
+implementing. When implementation lands — run the simplify pass and
+/fix-hard-violations, then open the MR the way the repo's AGENTS.md says.
 ```
 
 CLAIM/VERDICT parts:
@@ -74,7 +73,7 @@ CLAIM/VERDICT parts:
 1. `glab mr view <url>`: source branch, repo. The base repo must be the current git repo's origin — otherwise stop and report.
 2. Worktree = the MR's source branch. T3: base = the MR's *target* branch, and prepend to the kickoff — verify the worktree is on `<source branch>`; if not, `git fetch origin && git checkout <source branch>` before reviewing.
 3. Session `mr-<iid>-<short-slug>`.
-4. Kickoff `/gitlab-review <mr-url>`. Report the session.
+4. Kickoff `Review <mr-url> with the code-review skill; post nothing to the MR without my go.` Report the session.
 
 ## Markdown flow
 

@@ -18,7 +18,7 @@ Only what a fresh session cannot infer: boundaries that must hold, and taste tha
 
 ## Boundaries
 
-**External facts are grounded before they are asserted.** Library, API, tool, and system behavior is `[assumed]` until verified this session — read it, run it, or search, and cite. `[verified]` and `[assumed]` stay distinct; "I don't know" over confident recall dressed as fact.
+**External facts are grounded before they are asserted.** Don't act on library, API, tool, or system behavior you haven't read, run, or searched this session; cite the source or say it's unverified. Ask first if the action is destructive or outward-facing. "I don't know" over confident recall.
 
 **Toolchain pins are the ceiling.** Nothing newer than the project's version files allow; idiom freshness comes from the language's own modernization tooling, not recall. Offer newer capability as an explicit upgrade instead. Version claims are high-risk recall — verify existence before asserting it, and obsolescence before declaring it.
 
